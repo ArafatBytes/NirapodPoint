@@ -3,6 +3,7 @@ package com.nirapodpoint.backend.controller;
 import com.nirapodpoint.backend.model.User;
 import com.nirapodpoint.backend.service.UserService;
 import com.nirapodpoint.backend.security.JwtUtil;
+import com.nirapodpoint.backend.service.MailService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -17,6 +18,8 @@ public class AuthController {
     private UserService userService;
     @Autowired
     private JwtUtil jwtUtil;
+    @Autowired
+    private MailService mailService;
 
     @PostMapping("/register")
     public ResponseEntity<?> registerUser(
@@ -54,6 +57,32 @@ public class AuthController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Not authenticated");
         }
         return ResponseEntity.ok(new UserInfo(user.getId(), user.getName(), user.getEmail(), user.getPhone(), user.isVerified(), user.isAdmin(), user.getCreatedAt()));
+    }
+    @PostMapping("/request-reset")
+    public ResponseEntity<?> requestPasswordReset(@RequestBody ResetRequest req) {
+        try {
+            userService.generateAndSendOtp(req.getEmail(), mailService);
+            return ResponseEntity.ok("OTP sent to your email (valid for 5 minutes)");
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+        }
+    }
+
+    @PostMapping("/verify-otp")
+    public ResponseEntity<?> verifyOtp(@RequestBody OtpRequest req) {
+        boolean valid = userService.verifyOtp(req.getEmail(), req.getOtp());
+        if (valid) return ResponseEntity.ok("OTP verified");
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Invalid or expired OTP");
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<?> resetPassword(@RequestBody ResetPasswordRequest req) {
+        try {
+            userService.resetPasswordWithOtp(req.getEmail(), req.getOtp(), req.getNewPassword());
+            return ResponseEntity.ok("Password reset successful");
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+        }
     }
 
     public static class LoginRequest {
@@ -102,5 +131,29 @@ public class AuthController {
         public boolean isVerified() { return isVerified; }
         public boolean isAdmin() { return isAdmin; }
         public java.time.LocalDateTime getCreatedAt() { return createdAt; }
+    }
+    public static class ResetRequest {
+        private String email;
+        public String getEmail() { return email; }
+        public void setEmail(String email) { this.email = email; }
+    }
+    public static class OtpRequest {
+        private String email;
+        private String otp;
+        public String getEmail() { return email; }
+        public void setEmail(String email) { this.email = email; }
+        public String getOtp() { return otp; }
+        public void setOtp(String otp) { this.otp = otp; }
+    }
+    public static class ResetPasswordRequest {
+        private String email;
+        private String otp;
+        private String newPassword;
+        public String getEmail() { return email; }
+        public void setEmail(String email) { this.email = email; }
+        public String getOtp() { return otp; }
+        public void setOtp(String otp) { this.otp = otp; }
+        public String getNewPassword() { return newPassword; }
+        public void setNewPassword(String newPassword) { this.newPassword = newPassword; }
     }
 } 
