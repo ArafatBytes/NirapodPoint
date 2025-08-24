@@ -5,4 +5,6 @@ import org.springframework.data.mongodb.repository.MongoRepository;
 import org.springframework.stereotype.Repository;
 
 @Repository
-public interface CrimeReportRepository extends MongoRepository<CrimeReport, String> {   } 
+public interface CrimeReportRepository extends MongoRepository<CrimeReport, String> { 
+     void deleteByReporter(String reporter);
+} 

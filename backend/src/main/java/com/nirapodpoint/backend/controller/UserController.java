@@ -4,6 +4,7 @@ import com.nirapodpoint.backend.model.User;
 import com.nirapodpoint.backend.repository.UserRepository;
 import com.nirapodpoint.backend.service.MailService;
 import com.nirapodpoint.backend.service.UserService;
+import com.nirapodpoint.backend.repository.CrimeReportRepository;
 import jakarta.mail.MessagingException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -24,6 +25,8 @@ public class UserController {
     private MailService mailService;
     @Autowired
     private UserService userService;
+    @Autowired
+    private CrimeReportRepository crimeReportRepository;
 
     @GetMapping
     public ResponseEntity<?> getAllUsers(@AuthenticationPrincipal User admin,
@@ -66,6 +69,7 @@ public class UserController {
             } catch (MessagingException e) {
                 e.printStackTrace();
             }
+            crimeReportRepository.deleteByReporter(user.getId());
         }
         return ResponseEntity.ok(user);
     }
