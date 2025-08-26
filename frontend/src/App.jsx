@@ -1,4 +1,4 @@
-// eslint-disable-next-line
+
 import React from "react";
 import { motion } from "framer-motion";
 import {
@@ -20,6 +20,7 @@ import MapPage from "./pages/MapPage";
 import ReportPage from "./pages/ReportPage";
 import HistoryPage from "./pages/HistoryPage";
 import RiskAnalysisPage from "./pages/RiskAnalysisPage";
+import DebugCrimeRouteDemo from "./pages/DebugCrimeRouteDemo";
 
 const features = [
   {
@@ -49,7 +50,7 @@ function ProtectedRoute({ children }) {
   const location = useLocation();
   React.useEffect(() => {
     refreshUser && refreshUser();
-    // eslint-disable-next-line
+    
   }, []);
   console.log("ProtectedRoute user:", user);
 
@@ -289,6 +290,7 @@ export default function App() {
           <Route path="/map" element={<MapPage />} />
           <Route path="/history" element={<HistoryPage />} />
           <Route path="/risk" element={<RiskAnalysisPage />} />
+          <Route path="/debug-crime-route" element={<DebugCrimeRouteDemo />} />
         </Routes>
       </Router>
     </UserProvider>
