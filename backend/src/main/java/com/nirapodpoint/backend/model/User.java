@@ -16,6 +16,7 @@ public class User {
     private String password; 
     private String nidFront; 
     private String nidBack; 
+    private String photo; 
     private boolean isVerified = false;
     private boolean isAdmin = false;
     private LocalDateTime createdAt = LocalDateTime.now();

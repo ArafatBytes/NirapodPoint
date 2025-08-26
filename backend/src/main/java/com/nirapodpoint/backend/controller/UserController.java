@@ -81,6 +81,7 @@ public class UserController {
         if (update.getName() != null) user.setName(update.getName());
         if (update.getEmail() != null) user.setEmail(update.getEmail());
         if (update.getPhone() != null) user.setPhone(update.getPhone());
+        if (update.getPhoto() != null && !update.getPhoto().isEmpty()) user.setPhoto(update.getPhoto());
         userRepository.save(user);
         return ResponseEntity.ok(user);
     }

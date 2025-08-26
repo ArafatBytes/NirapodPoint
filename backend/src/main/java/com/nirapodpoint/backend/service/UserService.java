@@ -24,7 +24,7 @@ public class UserService {
     private final Random random = new Random();
     private static final int OTP_EXPIRY_MINUTES = 5;
 
-    public User registerUser(String name, String email, String phone, String password, MultipartFile nidFront, MultipartFile nidBack) throws IOException {
+    public User registerUser(String name, String email, String phone, String password, MultipartFile nidFront, MultipartFile nidBack, String photo) throws IOException {
         String cleanEmail = email.trim().toLowerCase();
         String cleanPhone = phone.trim();
         if (userRepository.findByEmail(cleanEmail).isPresent()) {
@@ -40,6 +40,7 @@ public class UserService {
         user.setPassword(passwordEncoder.encode(password));
         user.setNidFront(Base64.getEncoder().encodeToString(nidFront.getBytes()));
         user.setNidBack(Base64.getEncoder().encodeToString(nidBack.getBytes()));
+        user.setPhoto(photo);
         user.setVerified(false);
         return userRepository.save(user);
     }

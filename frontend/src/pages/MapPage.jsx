@@ -22,6 +22,7 @@ import { useNavigate } from "react-router-dom";
 import { useUser } from "../context/UserContext";
 import { motion } from "framer-motion";
 import toast from "react-hot-toast";
+import PhotonSearchBar from "../components/PhotonSearchBar";
 
 const crimeTypeColors = {
   robbery: "red",
@@ -31,8 +32,10 @@ const crimeTypeColors = {
   other: "gray",
 };
 
+
 const getCrimeIcon = (type) => {
   const color = crimeTypeColors[type?.toLowerCase()] || "gray";
+
   const svg = `
     <svg xmlns='http://www.w3.org/2000/svg' width='40' height='60' viewBox='0 0 40 60'>
       <line x1='20' y1='24' x2='20' y2='58' stroke='#888' stroke-width='2.5'/>
@@ -63,18 +66,22 @@ const MapPage = () => {
   const [selectedLatLng, setSelectedLatLng] = useState(null);
   const [route, setRoute] = useState([]);
   const [selectingRoute, setSelectingRoute] = useState(false);
-  const [routePoints, setRoutePoints] = useState([]);
-  const [networkType, setNetworkType] = useState("drive");
+  const [routePoints, setRoutePoints] = useState([]); 
+  const [networkType, setNetworkType] = useState("drive"); 
   const [routeModalOpen, setRouteModalOpen] = useState(false);
   const [routeLoading, setRouteLoading] = useState(false);
   const [routeError, setRouteError] = useState("");
   const [showRouteInstruction, setShowRouteInstruction] = useState(false);
+  const [mapCenter, setMapCenter] = useState([23.685, 90.3563]);
+  const [searchMode, setSearchMode] = useState("source"); 
   const mapRef = useRef();
   const navigate = useNavigate();
   const { jwt } = useUser();
 
+
   const sourceToastId = useRef(null);
   const destToastId = useRef(null);
+
 
   useEffect(() => {
     async function fetchCrimes() {
@@ -84,6 +91,7 @@ const MapPage = () => {
         });
         if (!res.ok) throw new Error("Failed to fetch crimes");
         const data = await res.json();
+        
         const crimesWithLatLng = data.map((c) => ({
           ...c,
           lat: c.location?.coordinates?.[1],
@@ -96,6 +104,7 @@ const MapPage = () => {
     }
     fetchCrimes();
   }, [jwt]);
+
 
   const hourData = Array.from({ length: 24 }, (_, i) => ({
     hour: `${i}:00`,
@@ -113,15 +122,18 @@ const MapPage = () => {
     }
   });
 
+ 
   const filteredCrimes =
     filter === "all"
       ? crimes
       : crimes.filter((c) => c.type.toLowerCase() === filter);
 
+
   const handleMapClick = async (latlng) => {
     if (selectingRoute) {
       if (routePoints.length === 0) {
         setRoutePoints([latlng]);
+       
         if (sourceToastId.current) toast.dismiss(sourceToastId.current);
         destToastId.current = toast.custom(
           (t) => (
@@ -180,9 +192,12 @@ const MapPage = () => {
     }
   };
 
+
   const handleFilterChange = (e) => setFilter(e.target.value);
 
+
   const handleNetworkTypeChange = (e) => setNetworkType(e.target.value);
+
 
   const startRouteSelection = () => {
     setRouteModalOpen(true);
@@ -200,6 +215,7 @@ const MapPage = () => {
     setRoute([]);
     setRouteError("");
     setShowRouteInstruction(true);
+
     if (sourceToastId.current) toast.dismiss(sourceToastId.current);
     if (destToastId.current) toast.dismiss(destToastId.current);
     sourceToastId.current = toast.custom(
@@ -229,8 +245,16 @@ const MapPage = () => {
     setShowRouteInstruction(false);
   };
 
+  const handleSearch = (place) => {
+    setMapCenter([place.lat, place.lng]);
+    if (mapRef.current) {
+      mapRef.current.setView([place.lat, place.lng], 15);
+    }
+  };
+
   return (
     <div className="w-full h-screen flex flex-col bg-gray-100">
+      {/* Loading overlay for route calculation */}
       {routeLoading && (
         <motion.div
           initial={{ opacity: 0 }}
@@ -291,38 +315,124 @@ const MapPage = () => {
           </motion.div>
         </motion.div>
       )}
-      <div
-        className="flex flex-row items-center justify-between p-6 mt-20 mx-auto max-w-4xl rounded-2xl bg-white/30 backdrop-blur-md border border-glassyblue-200/40 shadow-2xl z-20 mb-2"
-        style={{ boxShadow: "0 8px 32px 0 rgba(31, 38, 135, 0.18)" }}
-      >
-        <h1 className="text-2xl md:text-3xl font-extrabold text-glassyblue-700 tracking-tight drop-shadow-lg mr-8 whitespace-nowrap">
-          Bangladesh Crime Map
-        </h1>
-        <div className="flex flex-row items-center gap-4 flex-1 justify-end">
-          <label className="font-medium text-glassyblue-700">Crime Type:</label>
-          <select
-            value={filter}
-            onChange={handleFilterChange}
-            className="rounded-lg border border-glassyblue-200 p-2 bg-white/60 focus:outline-none focus:ring-2 focus:ring-glassyblue-400"
-          >
-            <option value="all">All</option>
-            <option value="robbery">Robbery</option>
-            <option value="assault">Assault</option>
-            <option value="harassment">Harassment</option>
-            <option value="theft">Theft</option>
-            <option value="other">Other</option>
-          </select>
-          <button
-            onClick={startRouteSelection}
-            className="ml-4 px-6 py-2 rounded-full bg-glassyblue-500 text-black font-semibold shadow-lg hover:bg-glassyblue-600 transition-colors duration-200 backdrop-blur-md border border-white/20"
-          >
-            Safest Route
-          </button>
-        </div>
-      </div>
       <div className="flex-1 relative">
+        {/* Grid layout for heading card (left) and search bar (right) */}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "auto auto auto",
+            alignItems: "center",
+            justifyContent: "space-between",
+            margin: "0 auto",
+            marginTop: 80,
+            marginBottom: 10,
+            zIndex: 10,
+            padding: "0px 32px",
+            position: "relative",
+          }}
+        >
+          {/* Heading Card with filter */}
+          <div
+            style={{
+              background: "rgba(255,255,255,0.85)",
+              backdropFilter: "blur(12px)",
+              borderRadius: 18,
+              boxShadow: "0 4px 24px #0002",
+              border: "1.5px solid #e5e7eb",
+              padding: "18px 32px",
+              fontWeight: 700,
+              fontSize: 26,
+              color: "#111",
+              textAlign: "left",
+              minWidth: 340,
+              display: "flex",
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 18,
+              justifyContent: "space-between",
+            }}
+          >
+            <span
+              style={{ fontSize: 26, fontWeight: 700, whiteSpace: "nowrap" }}
+            >
+              Bangladesh Crime Map
+            </span>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                fontWeight: 500,
+                fontSize: 16,
+                marginLeft: 18,
+              }}
+            >
+              <label style={{ color: "#2563eb" }}>Crime Type:</label>
+              <select
+                value={filter}
+                onChange={handleFilterChange}
+                style={{
+                  borderRadius: 8,
+                  padding: "6px 12px",
+                  border: "1.5px solid #cbd5e1",
+                  background: "rgba(255,255,255,0.7)",
+                  fontSize: 15,
+                  fontWeight: 500,
+                  outline: "none",
+                }}
+              >
+                <option value="all">All</option>
+                <option value="robbery">Robbery</option>
+                <option value="assault">Assault</option>
+                <option value="harassment">Harassment</option>
+                <option value="theft">Theft</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+          </div>
+          {/* Safest Route Button (center) */}
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+            }}
+          >
+            <button
+              onClick={startRouteSelection}
+              style={{
+                padding: "12px 32px",
+                borderRadius: 16,
+                background: "rgba(59,130,246,0.12)",
+                color: "#2563eb",
+                fontWeight: 700,
+                fontSize: 18,
+                border: "1.5px solid #cbd5e1",
+                boxShadow: "0 2px 12px #0001",
+                backdropFilter: "blur(8px)",
+                cursor: "pointer",
+                transition: "background 0.2s, color 0.2s",
+              }}
+            >
+              Safest Route
+            </button>
+          </div>
+          {/* Search Bar (right) */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "flex-end",
+            }}
+          >
+            <PhotonSearchBar
+              placeholder="Search for a place..."
+              onSelect={handleSearch}
+            />
+          </div>
+        </div>
         <MapContainer
-          center={[23.685, 90.3563]}
+          center={mapCenter}
           zoom={7}
           style={{ height: "100%", width: "100%" }}
           ref={mapRef}
@@ -359,6 +469,7 @@ const MapPage = () => {
               color={networkType === "walk" ? "purple" : "green"}
             />
           )}
+          {/* Show source/destination markers while selecting or after route is shown */}
           {(routePoints[0] || (route.length > 1 && routePoints[0])) && (
             <Marker
               position={[
@@ -394,6 +505,7 @@ const MapPage = () => {
           )}
           <LocationMarker onSelect={handleMapClick} />
         </MapContainer>
+        {/* Safest Route Modal - moved outside MapContainer for z-index fix */}
         {routeModalOpen && (
           <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
             <div className="bg-white rounded-xl shadow-lg max-w-md w-full p-6 relative">
@@ -439,6 +551,242 @@ const MapPage = () => {
             </div>
           </div>
         )}
+        {/* Floating instruction while selecting route */}
+        {/* (Removed, replaced by hot toasts) */}
+        {/* Legend Sidebar */}
+        <div
+          style={{
+            position: "fixed",
+            top: "50%",
+            transform: "translateY(-50%)",
+            right: 32,
+            zIndex: 40,
+            background: "rgba(255,255,255,0.85)",
+            backdropFilter: "blur(12px)",
+            borderRadius: 16,
+            boxShadow: "0 4px 24px #0002",
+            border: "1.5px solid #e5e7eb",
+            padding: "18px 24px",
+            minWidth: 220,
+            fontSize: 16,
+            color: "#222",
+            display: "flex",
+            flexDirection: "column",
+            gap: 10,
+            alignItems: "flex-start",
+          }}
+        >
+          <div style={{ fontWeight: 700, fontSize: 18, marginBottom: 6 }}>
+            Marker
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <img
+              src="https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-green.png"
+              alt="Source"
+              width={22}
+              height={36}
+            />
+            <span>Source</span>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <img
+              src="https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png"
+              alt="Destination"
+              width={22}
+              height={36}
+            />
+            <span>Destination</span>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <span style={{ display: "inline-block", width: 22, height: 36 }}>
+              <svg width="22" height="36" viewBox="0 0 40 60">
+                <line
+                  x1="20"
+                  y1="24"
+                  x2="20"
+                  y2="58"
+                  stroke="#888"
+                  strokeWidth="2.5"
+                />
+                <circle
+                  cx="20"
+                  cy="18"
+                  r="14"
+                  fill="red"
+                  stroke="#fff"
+                  strokeWidth="2"
+                />
+                <ellipse
+                  cx="15"
+                  cy="13"
+                  rx="5"
+                  ry="2.5"
+                  fill="white"
+                  opacity="0.5"
+                />
+              </svg>
+            </span>
+            <span>Robbery</span>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <span style={{ display: "inline-block", width: 22, height: 36 }}>
+              <svg width="22" height="36" viewBox="0 0 40 60">
+                <line
+                  x1="20"
+                  y1="24"
+                  x2="20"
+                  y2="58"
+                  stroke="#888"
+                  strokeWidth="2.5"
+                />
+                <circle
+                  cx="20"
+                  cy="18"
+                  r="14"
+                  fill="purple"
+                  stroke="#fff"
+                  strokeWidth="2"
+                />
+                <ellipse
+                  cx="15"
+                  cy="13"
+                  rx="5"
+                  ry="2.5"
+                  fill="white"
+                  opacity="0.5"
+                />
+              </svg>
+            </span>
+            <span>Assault</span>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <span style={{ display: "inline-block", width: 22, height: 36 }}>
+              <svg width="22" height="36" viewBox="0 0 40 60">
+                <line
+                  x1="20"
+                  y1="24"
+                  x2="20"
+                  y2="58"
+                  stroke="#888"
+                  strokeWidth="2.5"
+                />
+                <circle
+                  cx="20"
+                  cy="18"
+                  r="14"
+                  fill="gold"
+                  stroke="#fff"
+                  strokeWidth="2"
+                />
+                <ellipse
+                  cx="15"
+                  cy="13"
+                  rx="5"
+                  ry="2.5"
+                  fill="white"
+                  opacity="0.5"
+                />
+              </svg>
+            </span>
+            <span>Harassment</span>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <span style={{ display: "inline-block", width: 22, height: 36 }}>
+              <svg width="22" height="36" viewBox="0 0 40 60">
+                <line
+                  x1="20"
+                  y1="24"
+                  x2="20"
+                  y2="58"
+                  stroke="#888"
+                  strokeWidth="2.5"
+                />
+                <circle
+                  cx="20"
+                  cy="18"
+                  r="14"
+                  fill="blue"
+                  stroke="#fff"
+                  strokeWidth="2"
+                />
+                <ellipse
+                  cx="15"
+                  cy="13"
+                  rx="5"
+                  ry="2.5"
+                  fill="white"
+                  opacity="0.5"
+                />
+              </svg>
+            </span>
+            <span>Theft</span>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <span style={{ display: "inline-block", width: 22, height: 36 }}>
+              <svg width="22" height="36" viewBox="0 0 40 60">
+                <line
+                  x1="20"
+                  y1="24"
+                  x2="20"
+                  y2="58"
+                  stroke="#888"
+                  strokeWidth="2.5"
+                />
+                <circle
+                  cx="20"
+                  cy="18"
+                  r="14"
+                  fill="gray"
+                  stroke="#fff"
+                  strokeWidth="2"
+                />
+                <ellipse
+                  cx="15"
+                  cy="13"
+                  rx="5"
+                  ry="2.5"
+                  fill="white"
+                  opacity="0.5"
+                />
+              </svg>
+            </span>
+            <span>Other</span>
+          </div>
+          <div
+            style={{
+              borderTop: "1px solid #e5e7eb",
+              width: "100%",
+              margin: "10px 0 4px 0",
+            }}
+          />
+          <div style={{ fontWeight: 700, fontSize: 17, marginBottom: 4 }}>
+            Route Type
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <span
+              style={{
+                display: "inline-block",
+                width: 32,
+                height: 0,
+                borderTop: "5px solid #22c55e",
+                borderRadius: 3,
+              }}
+            ></span>
+            <span>Drive</span>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <span
+              style={{
+                display: "inline-block",
+                width: 32,
+                height: 0,
+                borderTop: "5px solid purple",
+                borderRadius: 3,
+              }}
+            ></span>
+            <span>Walk</span>
+          </div>
+        </div>
       </div>
     </div>
   );

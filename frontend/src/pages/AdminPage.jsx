@@ -21,7 +21,7 @@ export default function AdminPage() {
   useEffect(() => {
     if (!user || !user.admin) return;
     fetchUsers();
-    // eslint-disable-next-line
+   
   }, [status, user]);
 
   const fetchUsers = async () => {
@@ -129,9 +129,22 @@ export default function AdminPage() {
                 className="backdrop-blur-xl bg-white/40 border border-glassyblue-200/40 shadow-2xl rounded-3xl p-6 flex flex-col gap-3 items-center"
                 style={{ boxShadow: "0 8px 32px 0 rgba(31, 38, 135, 0.18)" }}
               >
-                <div className="w-16 h-16 rounded-full bg-gradient-to-br from-glassyblue-200 to-glassyblue-400 flex items-center justify-center text-2xl font-bold text-white mb-2">
-                  {u.name?.[0] || "U"}
-                </div>
+                 {/* User real-time photo */}
+                 {u.photo ? (
+                  <img
+                    src={u.photo}
+                    alt="User Photo"
+                    className="w-20 h-20 object-cover rounded-full border-2 border-glassyblue-300 shadow bg-white/60 cursor-pointer mb-2"
+                    title="User Photo"
+                    onClick={() =>
+                      setModalImg({ src: u.photo, alt: `Photo of ${u.name}` })
+                    }
+                  />
+                ) : (
+                  <div className="w-16 h-16 rounded-full bg-gradient-to-br from-glassyblue-200 to-glassyblue-400 flex items-center justify-center text-2xl font-bold text-white mb-2">
+                    {u.name?.[0] || "U"}
+                  </div>
+                )}
                 <div className="text-lg font-semibold text-glassyblue-700 text-center">
                   {u.name}
                 </div>
