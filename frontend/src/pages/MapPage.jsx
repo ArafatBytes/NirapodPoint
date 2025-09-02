@@ -23,6 +23,7 @@ import { useUser } from "../context/UserContext";
 import { motion } from "framer-motion";
 import toast from "react-hot-toast";
 import PhotonSearchBar from "../components/PhotonSearchBar";
+import { isInBangladeshPolygon } from "../utils/bangladeshPolygon";
 
 const crimeTypeColors = {
   robbery: "red",
@@ -31,7 +32,6 @@ const crimeTypeColors = {
   theft: "blue",
   other: "gray",
 };
-
 
 const getCrimeIcon = (type) => {
   const color = crimeTypeColors[type?.toLowerCase()] || "gray";
@@ -54,6 +54,10 @@ const getCrimeIcon = (type) => {
 function LocationMarker({ onSelect }) {
   useMapEvents({
     click(e) {
+      if (!isInBangladeshPolygon(e.latlng.lat, e.latlng.lng)) {
+        toast.error("Please select a location within Bangladesh.");
+        return;
+      }
       onSelect(e.latlng);
     },
   });
@@ -66,22 +70,20 @@ const MapPage = () => {
   const [selectedLatLng, setSelectedLatLng] = useState(null);
   const [route, setRoute] = useState([]);
   const [selectingRoute, setSelectingRoute] = useState(false);
-  const [routePoints, setRoutePoints] = useState([]); 
-  const [networkType, setNetworkType] = useState("drive"); 
+  const [routePoints, setRoutePoints] = useState([]);
+  const [networkType, setNetworkType] = useState("drive");
   const [routeModalOpen, setRouteModalOpen] = useState(false);
   const [routeLoading, setRouteLoading] = useState(false);
   const [routeError, setRouteError] = useState("");
   const [showRouteInstruction, setShowRouteInstruction] = useState(false);
   const [mapCenter, setMapCenter] = useState([23.685, 90.3563]);
-  const [searchMode, setSearchMode] = useState("source"); 
+  const [searchMode, setSearchMode] = useState("source");
   const mapRef = useRef();
   const navigate = useNavigate();
   const { jwt } = useUser();
 
-
   const sourceToastId = useRef(null);
   const destToastId = useRef(null);
-
 
   useEffect(() => {
     async function fetchCrimes() {
@@ -91,7 +93,7 @@ const MapPage = () => {
         });
         if (!res.ok) throw new Error("Failed to fetch crimes");
         const data = await res.json();
-        
+
         const crimesWithLatLng = data.map((c) => ({
           ...c,
           lat: c.location?.coordinates?.[1],
@@ -104,7 +106,6 @@ const MapPage = () => {
     }
     fetchCrimes();
   }, [jwt]);
-
 
   const hourData = Array.from({ length: 24 }, (_, i) => ({
     hour: `${i}:00`,
@@ -122,18 +123,20 @@ const MapPage = () => {
     }
   });
 
- 
   const filteredCrimes =
     filter === "all"
       ? crimes
       : crimes.filter((c) => c.type.toLowerCase() === filter);
 
-
   const handleMapClick = async (latlng) => {
+    if (!isInBangladeshPolygon(latlng.lat, latlng.lng)) {
+      toast.error("Please select a location within Bangladesh.");
+      return;
+    }
     if (selectingRoute) {
       if (routePoints.length === 0) {
         setRoutePoints([latlng]);
-       
+
         if (sourceToastId.current) toast.dismiss(sourceToastId.current);
         destToastId.current = toast.custom(
           (t) => (
@@ -192,12 +195,9 @@ const MapPage = () => {
     }
   };
 
-
   const handleFilterChange = (e) => setFilter(e.target.value);
 
-
   const handleNetworkTypeChange = (e) => setNetworkType(e.target.value);
-
 
   const startRouteSelection = () => {
     setRouteModalOpen(true);
@@ -254,7 +254,6 @@ const MapPage = () => {
 
   return (
     <div className="w-full h-screen flex flex-col bg-gray-100">
-      {/* Loading overlay for route calculation */}
       {routeLoading && (
         <motion.div
           initial={{ opacity: 0 }}

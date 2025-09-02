@@ -1,4 +1,3 @@
-
 import React, { useState, useRef } from "react";
 import { motion } from "framer-motion";
 import { useUser } from "../context/UserContext";
@@ -20,7 +19,6 @@ function RegisterPage() {
   });
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
-
 
   const [showCamera, setShowCamera] = useState(false);
   const videoRef = useRef();
@@ -49,7 +47,7 @@ function RegisterPage() {
       setForm((f) => ({ ...f, photo: dataUrl }));
       setPhotoPreview(dataUrl);
       setShowCamera(false);
-    
+
       if (video.srcObject) {
         video.srcObject.getTracks().forEach((track) => track.stop());
       }
@@ -290,6 +288,97 @@ function RegisterPage() {
           </a>
         </div>
       </motion.form>
+      <div
+        className="mt-6 max-w-lg mx-auto"
+        style={{
+          background: "#eaf2fe",
+          borderRadius: 16,
+          boxShadow: "0 2px 12px #0001",
+          padding: "18px 24px",
+          fontSize: 15,
+          color: "#334155",
+          border: "1.5px solid #cbd5e1",
+          backdropFilter: "blur(8px)",
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            fontWeight: 600,
+            fontSize: 17,
+            marginBottom: 2,
+          }}
+        >
+          <span
+            style={{
+              color: "#2563eb",
+              fontSize: 22,
+              display: "flex",
+              alignItems: "center",
+            }}
+          >
+            <svg
+              width="22"
+              height="22"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <circle
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="#2563eb"
+                strokeWidth="2"
+                fill="#eaf2fe"
+              />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M12 8v4m0 4h.01"
+              />
+            </svg>
+          </span>
+          <span>Why do we need your NID and real-time photo?</span>
+        </div>
+        <ul className="list-disc pl-5 mt-2 mb-1">
+          <li>
+            <b>Identity Verification:</b> We require your National ID (NID) and
+            a real-time photo to ensure that every account on Nirapod Point is
+            genuine and to prevent misuse of the platform.
+          </li>
+          <li>
+            <b>Community Safety:</b> This helps us maintain a safe and
+            trustworthy environment for all users, and ensures that crime
+            reports are credible.
+          </li>
+          <li>
+            <b>Data Privacy:</b> Your documents and photos are securely stored,
+            encrypted, and never shared with third parties. They are used solely
+            for verification and are only accessible to authorized admin
+            personnel.
+          </li>
+          <li>
+            <b>Your Rights:</b> We respect your privacy and comply with all
+            applicable data protection laws. You may request deletion of your
+            data at any time.
+          </li>
+        </ul>
+        <span className="text-xs text-glassyblue-500">
+          If you have any questions about how your data is used, please contact
+          our{" "}
+          <a
+            href="mailto:hello3210bye@gmail.com"
+            style={{ color: "#2563eb", textDecoration: "underline" }}
+          >
+            support team
+          </a>
+          .
+        </span>
+      </div>
     </div>
   );
 }

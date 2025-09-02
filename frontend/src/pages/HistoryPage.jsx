@@ -32,6 +32,34 @@ export default function HistoryPage() {
   const { user, jwt } = useUser();
   const [crimes, setCrimes] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [addresses, setAddresses] = useState({});
+
+  const fetchAddress = async (lat, lng, crimeId) => {
+    try {
+      const res = await fetch(
+        `https://photon.komoot.io/reverse?lat=${lat}&lon=${lng}&lang=en`
+      );
+      const data = await res.json();
+      let address = "Unknown area";
+      if (data.features && data.features.length > 0) {
+        const props = data.features[0].properties;
+        address =
+          props.name ||
+          props.street ||
+          props.suburb ||
+          props.city ||
+          props.state ||
+          props.country ||
+          "Unknown area";
+        if (props.city && props.city !== address) address += ", " + props.city;
+        if (props.country && props.country !== address)
+          address += ", " + props.country;
+      }
+      setAddresses((prev) => ({ ...prev, [crimeId]: address }));
+    } catch {
+      setAddresses((prev) => ({ ...prev, [crimeId]: "Unknown area" }));
+    }
+  };
 
   useEffect(() => {
     if (!user) return;
@@ -51,6 +79,11 @@ export default function HistoryPage() {
             lng: c.location?.coordinates?.[0],
           }));
         setCrimes(userCrimes);
+        userCrimes.forEach((crime) => {
+          if (crime.lat && crime.lng && !addresses[crime.id]) {
+            fetchAddress(crime.lat, crime.lng, crime.id);
+          }
+        });
       } catch {
         setCrimes([]);
       } finally {
@@ -100,11 +133,6 @@ export default function HistoryPage() {
                 <span className="text-lg font-bold text-glassyblue-700 capitalize">
                   {crime.type}
                 </span>
-                <span className="ml-auto text-xs text-glassyblue-500">
-                  {crime.lat && crime.lng
-                    ? `${crime.lat.toFixed(4)}, ${crime.lng.toFixed(4)}`
-                    : "No location"}
-                </span>
               </div>
               <div className="text-sm text-glassyblue-600 mb-1">
                 {crime.time ? new Date(crime.time).toLocaleString() : "No time"}
@@ -112,16 +140,25 @@ export default function HistoryPage() {
               <div className="text-base text-gray-800 mb-2">
                 {crime.description}
               </div>
+              <div className="text-xs text-glassyblue-500 mb-1">
+                <b>Location:</b>{" "}
+                {addresses[crime.id] ? (
+                  <>
+                    {addresses[crime.id]} <br />
+                    <span style={{ color: "#64748b" }}>
+                      ({crime.lat?.toFixed(5)}, {crime.lng?.toFixed(5)})
+                    </span>
+                  </>
+                ) : (
+                  <span style={{ color: "#64748b" }}>Fetching address...</span>
+                )}
+              </div>
               {crime.lat && crime.lng && (
                 <div className="rounded-xl overflow-hidden border border-glassyblue-200/40 shadow-md h-40">
                   <MapContainer
                     center={[crime.lat, crime.lng]}
                     zoom={14}
-                    style={{ width: "100%", height: "100%" }}
-                    dragging={false}
-                    scrollWheelZoom={false}
-                    doubleClickZoom={false}
-                    zoomControl={false}
+                    style={{ width: "100%", height: "100%", minHeight: 160 }}
                     attributionControl={false}
                     className="z-0"
                   >

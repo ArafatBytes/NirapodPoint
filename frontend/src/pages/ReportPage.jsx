@@ -1,14 +1,26 @@
-
 import React, { useState, useRef } from "react";
 import { MapContainer, TileLayer, Marker, useMapEvents } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import CrimeReportForm from "../components/CrimeReportForm";
 import PhotonSearchBar from "../components/PhotonSearchBar";
+import toast from "react-hot-toast";
+import { isInBangladeshPolygon } from "../utils/bangladeshPolygon";
+
+const BD_BOUNDS = {
+  minLat: 20.59,
+  maxLat: 26.63,
+  minLng: 88.01,
+  maxLng: 92.68,
+};
 
 function LocationPicker({ onSelect, selectedLatLng }) {
   useMapEvents({
     click(e) {
+      if (!isInBangladeshPolygon(e.latlng.lat, e.latlng.lng)) {
+        toast.error("Please select a location within Bangladesh.");
+        return;
+      }
       onSelect(e.latlng);
     },
   });
@@ -41,11 +53,8 @@ export default function ReportPage() {
     }
   };
 
-
   return (
     <div className="min-h-screen flex flex-col md:flex-row bg-gradient-to-br from-glassyblue-100 via-white to-glassyblue-200">
-
-      {/* Map and Search (left on desktop, top on mobile) */}
       <div className="md:w-1/2 w-full flex flex-col items-center justify-center p-4 md:p-8">
         <PhotonSearchBar
           placeholder="Search for a place..."
