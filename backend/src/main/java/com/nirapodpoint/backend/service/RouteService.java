@@ -9,18 +9,31 @@ import com.nirapodpoint.backend.repository.CrimeReportRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
+import org.springframework.data.mongodb.core.geo.GeoJsonPoint;
+import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.cache.annotation.Cacheable;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 
 import java.io.InputStream;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 @Service
 public class RouteService {
     @Autowired
     private CrimeReportRepository crimeReportRepository;
+    
+    @Autowired
+    private MongoTemplate mongoTemplate;
+
+    
+    private final Map<String, Object[]> edgeWeightCache = new ConcurrentHashMap<>();
+    private static final long CACHE_DURATION_MINUTES = 30;
 
     private static class Node {
         double lat, lng;
@@ -33,7 +46,7 @@ public class RouteService {
         double weight; 
         double length; 
     }
-
+    
     private final Map<String, Map<Long, Node>> nodeCache = new ConcurrentHashMap<>();
     private final Map<String, List<Edge>> edgeCache = new ConcurrentHashMap<>();
 
@@ -81,73 +94,119 @@ public class RouteService {
         }
     }
 
+    private String getEdgeCacheKey(Edge edge, String district) {
+        return district + "_" + edge.from.id + "_" + edge.to.id;
+    }
+
+    private double getEdgeWeight(Edge edge, String district, List<CrimeReport> nearbyCrimes) {
+        String cacheKey = getEdgeCacheKey(edge, district);
+        Object[] cached = edgeWeightCache.get(cacheKey);
+        
+        if (cached != null) {
+            long timestamp = (long) cached[1];
+            if (System.currentTimeMillis() - timestamp < TimeUnit.MINUTES.toMillis(CACHE_DURATION_MINUTES)) {
+                return (double) cached[0];
+            }
+        }
+
+        double weight = calculateEdgeWeight(edge, nearbyCrimes);
+        edgeWeightCache.put(cacheKey, new Object[]{weight, System.currentTimeMillis()});
+        return weight;
+    }
+
+    private double calculateEdgeWeight(Edge edge, List<CrimeReport> nearbyCrimes) {
+        double totalScore = 0;
+        for (CrimeReport crime : nearbyCrimes) {
+            if (isCrimeNearEdge(crime, edge, 30)) {
+                double severity = getSeverity(crime.getType());
+                double recency = getRecency(crime.getTime(), LocalDateTime.now());
+                totalScore += severity * recency;
+            }
+        }
+        return totalScore;
+    }
+
     public RouteResponse findSafestRoute(RouteRequest request) {
         
-        String district = DistrictUtil.findDistrict(request.getStartLat(), request.getStartLng());
-        if (district == null) throw new RuntimeException("No district found for start point");
-        String networkType = request.getNetworkType(); 
+        String startDistrict = DistrictUtil.findDistrict(request.getStartLat(), request.getStartLng());
+        String endDistrict = DistrictUtil.findDistrict(request.getEndLat(), request.getEndLng());
+        
+        if (startDistrict == null || endDistrict == null) 
+            throw new RuntimeException("No district found for points");
+
+        String networkType = request.getNetworkType();
+        
         try {
-            loadGraphIfNeeded(district, networkType);
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to load OSM graph: " + e.getMessage(), e);
-        }
-        String key = getGraphKey(district, networkType);
-        Map<Long, Node> nodes = nodeCache.get(key);
-        List<Edge> edges = edgeCache.get(key);
+            
+            loadGraphIfNeeded(startDistrict, networkType);
+            if (!startDistrict.equals(endDistrict)) {
+                loadGraphIfNeeded(endDistrict, networkType);
+            }
 
-    
-        List<CrimeReport> crimes = crimeReportRepository.findAll();
-        LocalDateTime queryTime = LocalDateTime.now(); 
+            
+            String startKey = getGraphKey(startDistrict, networkType);
+            Map<Long, Node> nodes = new HashMap<>(nodeCache.get(startKey));
+            List<Edge> edges = new ArrayList<>(edgeCache.get(startKey));
 
-        
-        Map<CrimeReport, Double> crimeScores = new HashMap<>();
-        for (CrimeReport crime : crimes) {
-            double severity = getSeverity(crime.getType());
-            double recency = getRecency(crime.getTime(), queryTime);
-            crimeScores.put(crime, severity * recency);
-        }
+            
+            if (!startDistrict.equals(endDistrict)) {
+                String endKey = getGraphKey(endDistrict, networkType);
+                nodes.putAll(nodeCache.get(endKey));
+                edges.addAll(edgeCache.get(endKey));
+            }
 
-        
-        for (Edge edge : edges) {
-            edge.weight = 0;
-        }
-        
-        for (CrimeReport crime : crimes) {
-            double crimeScore = crimeScores.get(crime);
+
+            double minLat = Math.min(request.getStartLat(), request.getEndLat()) - 0.1;
+            double maxLat = Math.max(request.getStartLat(), request.getEndLat()) + 0.1;
+            double minLng = Math.min(request.getStartLng(), request.getEndLng()) - 0.1;
+            double maxLng = Math.max(request.getStartLng(), request.getEndLng()) + 0.1;
+
+            
+            Query query = new Query(
+                Criteria.where("location").within(
+                    new org.springframework.data.geo.Box(
+                        new org.springframework.data.geo.Point(minLng, minLat),
+                        new org.springframework.data.geo.Point(maxLng, maxLat)
+                    )
+                )
+            );
+            List<CrimeReport> nearbyCrimes = mongoTemplate.find(query, CrimeReport.class);
+
+            
             for (Edge edge : edges) {
-                if (isCrimeNearEdge(crime, edge, 30)) {
-                    edge.weight += crimeScore;
+                edge.weight = getEdgeWeight(edge, startDistrict, nearbyCrimes);
+                if (edge.length == 0) {
+                    edge.length = calculateEdgeLength(edge);
                 }
             }
-        }
-        
-        for (Edge edge : edges) {
-            if (edgeLengthMap.containsKey(edge)) {
-                edge.length = edgeLengthMap.get(edge);
-            } else if (edgeLengthFromParsed(edge) > 0) {
-                edge.length = edgeLengthFromParsed(edge);
-            } else {
-                edge.length = calculateEdgeLength(edge);
-            }
-        }
 
-        
-        Node start = findNearestNode(request.getStartLat(), request.getStartLng(), nodes.values());
-        Node end = findNearestNode(request.getEndLat(), request.getEndLng(), nodes.values());
-        if (start == null || end == null) throw new RuntimeException("No nearby road found");
+            
+            Node start = findNearestNode(request.getStartLat(), request.getStartLng(), nodes.values());
+            Node end = findNearestNode(request.getEndLat(), request.getEndLng(), nodes.values());
+            
+            if (start == null || end == null) 
+                throw new RuntimeException("No nearby road found");
 
-       
-        List<Node> path = aStar(start, end);
-        List<RouteResponse.Coordinate> route = new ArrayList<>();
-        for (Node n : path) {
-            RouteResponse.Coordinate c = new RouteResponse.Coordinate();
-            c.setLat(n.lat);
-            c.setLng(n.lng);
-            route.add(c);
+            
+            List<Node> path = aStar(start, end);
+            
+            
+            List<RouteResponse.Coordinate> route = path.stream()
+                .map(n -> {
+                    RouteResponse.Coordinate c = new RouteResponse.Coordinate();
+                    c.setLat(n.lat);
+                    c.setLng(n.lng);
+                    return c;
+                })
+                .collect(Collectors.toList());
+
+            RouteResponse response = new RouteResponse();
+            response.setRoute(route);
+            return response;
+
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to calculate route: " + e.getMessage(), e);
         }
-        RouteResponse response = new RouteResponse();
-        response.setRoute(route);
-        return response;
     }
 
     private double getSeverity(String type) {
@@ -204,7 +263,7 @@ public class RouteService {
         double x2 = (lambda2 - lambda1) * Math.cos((phi1 + phi2) / 2) * R;
         double y2 = (phi2 - phi1) * R;
 
-        
+     
         double dx = x2 - x1;
         double dy = y2 - y1;
         double segLen2 = dx * dx + dy * dy;
@@ -234,7 +293,7 @@ public class RouteService {
     private static final double BETA = 0.00001; 
 
     private List<Node> aStar(Node start, Node end) {
-        Map<Node, Double> gScore = new HashMap<>(); 
+        Map<Node, Double> gScore = new HashMap<>();
         Map<Node, Double> fScore = new HashMap<>(); 
         Map<Node, Node> cameFrom = new HashMap<>();
         PriorityQueue<Node> openSet = new PriorityQueue<>(Comparator.comparingDouble(fScore::get));
@@ -284,7 +343,7 @@ public class RouteService {
         return length;
     }
 
-   
+    
     private double edgeLengthFromParsed(Edge edge) {
         try {
             java.lang.reflect.Field f = edge.getClass().getDeclaredField("length");
@@ -301,7 +360,7 @@ public class RouteService {
     private final Map<Edge, Double> edgeLengthMap = new HashMap<>();
 
     private double haversine(double lat1, double lon1, double lat2, double lon2) {
-        double R = 6371000; 
+        double R = 6371000; // meters
         double dLat = Math.toRadians(lat2 - lat1);
         double dLon = Math.toRadians(lon2 - lon1);
         double a = Math.sin(dLat/2) * Math.sin(dLat/2) +
@@ -364,7 +423,7 @@ public class RouteService {
         synthetic.setTime(java.time.LocalDateTime.now());
         crimes.add(synthetic);
 
-        
+    
         Map<CrimeReport, Double> crimeScores = new HashMap<>();
         for (CrimeReport crime : crimes) {
             double severity = getSeverity(crime.getType());
@@ -388,7 +447,7 @@ public class RouteService {
             }
         }
 
-       
+        
         Node start = findNearestNode(request.getStartLat(), request.getStartLng(), nodes.values());
         Node end = findNearestNode(request.getEndLat(), request.getEndLng(), nodes.values());
         if (start == null || end == null) throw new RuntimeException("No nearby road found");
@@ -396,7 +455,7 @@ public class RouteService {
         
         List<Node> path = aStar(start, end);
 
-        
+    
         java.util.List<com.nirapodpoint.backend.model.RouteResponse.Coordinate> polyline = new java.util.ArrayList<>();
         java.util.List<EdgeWeightInfo> edgeWeights = new java.util.ArrayList<>();
         java.util.List<Edge> aStarEdges = new java.util.ArrayList<>();
@@ -434,7 +493,7 @@ public class RouteService {
             
             blockedEdge.from.edges.remove(blockedEdge);
             List<Node> altPath = aStar(start, end);
-           
+            
             blockedEdge.from.edges.add(blockedEdge);
             
             if (altPath.size() > 1 && !altPath.equals(path)) {
@@ -457,7 +516,7 @@ public class RouteService {
                         }
                     }
                 }
-                
+            
                 boolean isDuplicate = false;
                 for (java.util.List<EdgeWeightInfo> existing : altPaths) {
                     if (existing.equals(altEdgeWeights)) { isDuplicate = true; break; }

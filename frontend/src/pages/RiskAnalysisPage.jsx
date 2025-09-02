@@ -18,99 +18,95 @@ import {
 
 const crimeTypeColors = {
   murder: "#FF0000",
+  harassment: "#FFD700",
   rape: "#FF1493",
   kidnap: "#8A2BE2",
   assault: "#FF8C00",
   robbery: "#008080",
-  harassment: "#FFD700",
   theft: "#00CED1",
   others: "#808080",
 };
 
 const typeLabels = {
-  Murder: "murder",
-  Rape: "rape",
-  Kidnap: "kidnap",
-  Assault: "assault",
-  Robbery: "robbery",
-  Harassment: "harassment",
-  Theft: "theft",
-  Others: "others",
+  murder: "murder",
+  harassment: "harassment",
+  rape: "rape",
+  kidnap: "kidnap",
+  assault: "assault",
+  robbery: "robbery",
+  theft: "theft",
+  others: "others",
 };
 
 export default function RiskAnalysisPage() {
   const { jwt } = useUser();
-  const [crimes, setCrimes] = useState([]);
+  const [crimes, setCrimes] = useState([]); 
   const [loading, setLoading] = useState(true);
   const [typeFilter, setTypeFilter] = useState("all");
+  const [stats, setStats] = useState({
+    dangerousDistricts: [],
+    safestDistricts: [],
+    hourlyStats: [],
+    dailyStats: [],
+    crimeTypeStats: [],
+  });
 
   useEffect(() => {
-    async function fetchCrimes() {
+    async function fetchData() {
       setLoading(true);
       try {
-        const res = await fetch("/api/crimes", {
-          headers: { Authorization: jwt ? `Bearer ${jwt}` : undefined },
-        });
-        if (!res.ok) throw new Error("Failed to fetch crimes");
-        const data = await res.json();
+        const [crimesRes, statsRes] = await Promise.all([
+          fetch("/api/crimes", {
+            headers: { Authorization: jwt ? `Bearer ${jwt}` : undefined },
+          }),
+          fetch("/api/crimes/district-stats", {
+            headers: { Authorization: jwt ? `Bearer ${jwt}` : undefined },
+          }),
+        ]);
+
+        if (!crimesRes.ok || !statsRes.ok)
+          throw new Error("Failed to fetch data");
+
+        const [crimesData, statsData] = await Promise.all([
+          crimesRes.json(),
+          statsRes.json(),
+        ]);
+
         setCrimes(
-          data.map((c) => ({
+          crimesData.map((c) => ({
             ...c,
             lat: c.location?.coordinates?.[1],
             lng: c.location?.coordinates?.[0],
             type: c.type?.toLowerCase(),
           }))
         );
-      } catch {
+
+        setStats(statsData);
+      } catch (error) {
+        console.error("Error fetching data:", error);
         setCrimes([]);
+        setStats({
+          dangerousDistricts: [],
+          safestDistricts: [],
+          hourlyStats: [],
+          dailyStats: [],
+          crimeTypeStats: [],
+        });
       } finally {
         setLoading(false);
       }
     }
-    fetchCrimes();
+    fetchData();
   }, [jwt]);
 
+  
   const filteredCrimes =
     typeFilter === "all" ? crimes : crimes.filter((c) => c.type === typeFilter);
 
+ 
   const heatmapPoints = filteredCrimes
     .filter((c) => c.lat && c.lng)
     .map((c) => [c.lat, c.lng, 1]);
-
-  const hourData = Array.from({ length: 24 }, (_, i) => ({
-    hour: `${i}:00`,
-    count: 0,
-  }));
-  const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-  const dayData = dayNames.map((day) => ({ day, count: 0 }));
-  const typeData = Object.keys(crimeTypeColors).map((type) => ({
-    type: typeLabels[type],
-    count: 0,
-    color: crimeTypeColors[type],
-  }));
-  const districtCounts = {};
-  filteredCrimes.forEach((c) => {
-    if (c.time) {
-      const d = new Date(c.time);
-      hourData[d.getHours()].count++;
-      dayData[d.getDay()].count++;
-    }
-    const t = c.type;
-    if (t && crimeTypeColors[t]) {
-      const idx = Object.keys(crimeTypeColors).indexOf(t);
-      if (idx !== -1) typeData[idx].count++;
-    }
-    if (c.district) {
-      districtCounts[c.district] = (districtCounts[c.district] || 0) + 1;
-    }
-  });
-
-  const topDistricts = Object.entries(districtCounts)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 5);
-  const safeDistricts = Object.entries(districtCounts)
-    .sort((a, b) => a[1] - b[1])
-    .slice(0, 5);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-glassyblue-100 via-white to-glassyblue-200 pt-24 pb-12 px-2">
@@ -123,7 +119,7 @@ export default function RiskAnalysisPage() {
         </div>
       ) : (
         <div className="flex flex-col lg:flex-row gap-8 max-w-7xl mx-auto">
-          {/* Map + Heatmap */}
+        
           <div className="lg:w-2/3 w-full rounded-3xl shadow-xl bg-white/30 backdrop-blur-xl border border-glassyblue-200/40 p-4 mb-6 lg:mb-0">
             <div className="flex flex-row items-center mb-4 gap-4">
               <label className="font-medium text-glassyblue-700">
@@ -169,15 +165,73 @@ export default function RiskAnalysisPage() {
                 />
               )}
             </MapContainer>
+            <div className="grid grid-cols-2 gap-4 pt-8">
+              <div className="backdrop-blur-xl bg-white/30 border border-glassyblue-200/40 shadow-2xl rounded-3xl p-6 text-center">
+                <h2 className="font-semibold mb-2 text-glassyblue-700">
+                  Top 5 Dangerous Districts
+                </h2>
+                <ul className="list-disc list-inside text-glassyblue-700">
+                  {stats.dangerousDistricts.length === 0 ? (
+                    <li>No data</li>
+                  ) : (
+                    stats.dangerousDistricts.map((district, index) => (
+                      <li key={district.district} className="mb-2">
+                        <span className="font-bold">{district.district}</span>:{" "}
+                        <span className="text-red-600 font-semibold">
+                          {district.crimeCount} crimes
+                        </span>
+                        <div className="text-sm text-gray-600 ml-5">
+                          Most common: {district.mostCommonCrime}
+                          <br />
+                          Risk score: {district.severityScore.toFixed(1)}
+                        </div>
+                        {index === 0 && (
+                          <span className="ml-2 text-red-500">
+                            🔴 Highest Risk
+                          </span>
+                        )}
+                      </li>
+                    ))
+                  )}
+                </ul>
+              </div>
+              <div className="backdrop-blur-xl bg-white/30 border border-glassyblue-200/40 shadow-2xl rounded-3xl p-6 text-center">
+                <h2 className="font-semibold mb-2 text-glassyblue-700">
+                  Top 5 Safest Districts
+                </h2>
+                <ul className="list-disc list-inside text-glassyblue-700">
+                  {stats.safestDistricts.length === 0 ? (
+                    <li>No data</li>
+                  ) : (
+                    stats.safestDistricts.map((district, index) => (
+                      <li key={district.district} className="mb-2">
+                        <span className="font-bold">{district.district}</span>:{" "}
+                        <span className="text-green-600 font-semibold">
+                          {district.crimeCount} crimes
+                        </span>
+                        <div className="text-sm text-gray-600 ml-5">
+                          Most common: {district.mostCommonCrime}
+                          <br />
+                          Risk score: {district.severityScore.toFixed(1)}
+                        </div>
+                        {index === 0 && (
+                          <span className="ml-2 text-green-500">✅ Safest</span>
+                        )}
+                      </li>
+                    ))
+                  )}
+                </ul>
+              </div>
+            </div>
           </div>
-          {/* Analytics */}
+       
           <div className="lg:w-1/3 w-full flex flex-col gap-6">
             <div className="backdrop-blur-xl bg-white/30 border border-glassyblue-200/40 shadow-2xl rounded-3xl p-6">
               <h2 className="font-semibold mb-2 text-glassyblue-700">
                 Crimes by Hour
               </h2>
               <ResponsiveContainer width="100%" height={180}>
-                <BarChart data={hourData.filter((h) => h.count > 0)}>
+                <BarChart data={stats.hourlyStats}>
                   <XAxis dataKey="hour" />
                   <YAxis />
                   <Tooltip />
@@ -190,7 +244,7 @@ export default function RiskAnalysisPage() {
                 Crimes by Day
               </h2>
               <ResponsiveContainer width="100%" height={180}>
-                <BarChart data={dayData.filter((d) => d.count > 0)}>
+                <BarChart data={stats.dailyStats}>
                   <XAxis dataKey="day" />
                   <YAxis />
                   <Tooltip />
@@ -202,59 +256,40 @@ export default function RiskAnalysisPage() {
               <h2 className="font-semibold mb-2 text-glassyblue-700">
                 Crime Type Distribution
               </h2>
-              <ResponsiveContainer width="100%" height={180}>
+              <ResponsiveContainer width="100%" height={260}>
                 <PieChart>
                   <Pie
-                    data={typeData.filter((t) => t.count > 0)}
+                    data={stats.crimeTypeStats}
                     dataKey="count"
                     nameKey="type"
                     cx="50%"
                     cy="50%"
                     outerRadius={60}
-                    label
+                    label={({ type }) => typeLabels[type]}
                   >
-                    {typeData.map((entry, idx) => (
-                      <Cell key={`cell-${idx}`} fill={entry.color} />
+                    {stats.crimeTypeStats.map((entry, idx) => (
+                      <Cell
+                        key={`cell-${idx}`}
+                        fill={crimeTypeColors[entry.type] || "#808080"}
+                      />
                     ))}
                   </Pie>
-                  <Legend />
-                  <Tooltip />
+                  <Legend
+                    formatter={(value) => typeLabels[value]}
+                    wrapperStyle={{ paddingTop: "10px" }}
+                  />
+                  <Tooltip
+                    formatter={(value, name) => [value, typeLabels[name]]}
+                    wrapperStyle={{ zIndex: 100 }}
+                    contentStyle={{
+                      backgroundColor: "rgba(255, 255, 255, 0.9)",
+                      border: "1px solid #ccc",
+                      borderRadius: "4px",
+                      padding: "8px",
+                    }}
+                  />
                 </PieChart>
               </ResponsiveContainer>
-            </div>
-            <div className="backdrop-blur-xl bg-white/30 border border-glassyblue-200/40 shadow-2xl rounded-3xl p-6">
-              <h2 className="font-semibold mb-2 text-glassyblue-700">
-                Top 5 Dangerous Districts
-              </h2>
-              <ul className="list-disc list-inside text-glassyblue-700">
-                {topDistricts.length === 0 ? (
-                  <li>No data</li>
-                ) : (
-                  topDistricts.map(([district, count]) => (
-                    <li key={district}>
-                      <span className="font-bold">{district}</span>: {count}{" "}
-                      crimes
-                    </li>
-                  ))
-                )}
-              </ul>
-            </div>
-            <div className="backdrop-blur-xl bg-white/30 border border-glassyblue-200/40 shadow-2xl rounded-3xl p-6">
-              <h2 className="font-semibold mb-2 text-glassyblue-700">
-                Top 5 Safest Districts
-              </h2>
-              <ul className="list-disc list-inside text-glassyblue-700">
-                {safeDistricts.length === 0 ? (
-                  <li>No data</li>
-                ) : (
-                  safeDistricts.map(([district, count]) => (
-                    <li key={district}>
-                      <span className="font-bold">{district}</span>: {count}{" "}
-                      crimes
-                    </li>
-                  ))
-                )}
-              </ul>
             </div>
           </div>
         </div>

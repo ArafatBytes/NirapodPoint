@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/crimes")
@@ -22,9 +23,33 @@ public class CrimeReportController {
         return ResponseEntity.ok(crimeReportService.createCrimeReport(report));
     }
 
+    @GetMapping("/district-stats")
+    public ResponseEntity<?> getDistrictStats() {
+        return ResponseEntity.ok(crimeReportService.getDistrictStatistics());
+    }
+
     @GetMapping
-    public ResponseEntity<List<CrimeReport>> getAllCrimeReports() {
-        return ResponseEntity.ok(crimeReportService.getAllCrimeReports());
+    public ResponseEntity<List<CrimeReport>> getAllCrimeReports(
+            @RequestParam(required = false) String type,
+            @RequestParam(required = false, defaultValue = "0") int page,
+            @RequestParam(required = false, defaultValue = "100") int size,
+            @RequestParam(required = false) Double minLat,
+            @RequestParam(required = false) Double maxLat,
+            @RequestParam(required = false) Double minLng,
+            @RequestParam(required = false) Double maxLng
+    ) {
+        return ResponseEntity.ok(crimeReportService.getCrimeReports(type, page, size, minLat, maxLat, minLng, maxLng));
+    }
+
+    @GetMapping("/bounds")
+    public ResponseEntity<Map<String, Object>> getCrimesInBounds(
+            @RequestParam Double minLat,
+            @RequestParam Double maxLat,
+            @RequestParam Double minLng,
+            @RequestParam Double maxLng,
+            @RequestParam(required = false) String type
+    ) {
+        return ResponseEntity.ok(crimeReportService.getCrimesInBounds(minLat, maxLat, minLng, maxLng, type));
     }
 
     @GetMapping("/{id}")
@@ -44,4 +69,4 @@ public class CrimeReportController {
         crimeReportService.deleteCrimeReport(id);
         return ResponseEntity.noContent().build();
     }
-} 
+}
