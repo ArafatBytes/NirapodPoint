@@ -33,6 +33,7 @@ public class RouteService {
         double weight; 
         double length; 
     }
+
     private final Map<String, Map<Long, Node>> nodeCache = new ConcurrentHashMap<>();
     private final Map<String, List<Edge>> edgeCache = new ConcurrentHashMap<>();
 
@@ -94,9 +95,9 @@ public class RouteService {
         Map<Long, Node> nodes = nodeCache.get(key);
         List<Edge> edges = edgeCache.get(key);
 
-        
+    
         List<CrimeReport> crimes = crimeReportRepository.findAll();
-        LocalDateTime queryTime = LocalDateTime.now();
+        LocalDateTime queryTime = LocalDateTime.now(); 
 
         
         Map<CrimeReport, Double> crimeScores = new HashMap<>();
@@ -110,15 +111,17 @@ public class RouteService {
         for (Edge edge : edges) {
             edge.weight = 0;
         }
-         for (CrimeReport crime : crimes) {
+        
+        for (CrimeReport crime : crimes) {
             double crimeScore = crimeScores.get(crime);
             for (Edge edge : edges) {
                 if (isCrimeNearEdge(crime, edge, 30)) {
                     edge.weight += crimeScore;
                 }
             }
-         }
-         for (Edge edge : edges) {
+        }
+        
+        for (Edge edge : edges) {
             if (edgeLengthMap.containsKey(edge)) {
                 edge.length = edgeLengthMap.get(edge);
             } else if (edgeLengthFromParsed(edge) > 0) {
@@ -133,7 +136,7 @@ public class RouteService {
         Node end = findNearestNode(request.getEndLat(), request.getEndLng(), nodes.values());
         if (start == null || end == null) throw new RuntimeException("No nearby road found");
 
-        
+       
         List<Node> path = aStar(start, end);
         List<RouteResponse.Coordinate> route = new ArrayList<>();
         for (Node n : path) {
@@ -150,8 +153,11 @@ public class RouteService {
     private double getSeverity(String type) {
         switch (type.toLowerCase()) {
             case "murder": return 10;
-            case "robbery": return 7;
-            case "harassment": return 6;
+            case "rape": return 9;
+            case "kidnap": return 8;
+            case "assault": return 7;
+            case "robbery": return 6;
+            case "harassment": return 5;
             case "theft": return 3;
             default: return 1;
         }
@@ -166,7 +172,7 @@ public class RouteService {
         return 1;
     }
     private boolean isCrimeNearEdge(CrimeReport crime, Edge edge, double bufferMeters) {
-       double crimeLat = crime.getLocation().getY();
+        double crimeLat = crime.getLocation().getY();
         double crimeLng = crime.getLocation().getX();
         List<double[]> geom = edge.geometry;
         double minDist = Double.MAX_VALUE;
@@ -179,9 +185,9 @@ public class RouteService {
         return minDist <= bufferMeters;
     }
 
-   
-    private double distancePointToSegment(double lat, double lng, double lat1, double lng1, double lat2, double lng2) {
     
+    private double distancePointToSegment(double lat, double lng, double lat1, double lng1, double lat2, double lng2) {
+        
         double phi = Math.toRadians(lat);
         double lambda = Math.toRadians(lng);
         double phi1 = Math.toRadians(lat1);
@@ -198,7 +204,7 @@ public class RouteService {
         double x2 = (lambda2 - lambda1) * Math.cos((phi1 + phi2) / 2) * R;
         double y2 = (phi2 - phi1) * R;
 
-    
+        
         double dx = x2 - x1;
         double dy = y2 - y1;
         double segLen2 = dx * dx + dy * dy;
@@ -208,8 +214,8 @@ public class RouteService {
         double projY = y1 + t * dy;
         double dist = Math.sqrt((x - projX) * (x - projX) + (y - projY) * (y - projY));
         return dist;
-    } 
-      
+    }
+
     private Node findNearestNode(double lat, double lng, Collection<Node> nodes) {
         Node nearest = null;
         double minDist = Double.MAX_VALUE;
@@ -223,6 +229,7 @@ public class RouteService {
         return nearest;
     }
 
+    
     private static final double ALPHA = 10000.0; 
     private static final double BETA = 0.00001; 
 
@@ -277,7 +284,7 @@ public class RouteService {
         return length;
     }
 
-    
+   
     private double edgeLengthFromParsed(Edge edge) {
         try {
             java.lang.reflect.Field f = edge.getClass().getDeclaredField("length");
@@ -304,6 +311,7 @@ public class RouteService {
         return R * c;
     }
 
+    
     public static class EdgeWeightInfo {
         public double fromLat, fromLng, toLat, toLng, weight;
     }
@@ -347,7 +355,7 @@ public class RouteService {
         Map<Long, Node> nodes = nodeCache.get(key);
         List<Edge> edges = edgeCache.get(key);
 
-    
+        
         List<CrimeReport> crimes = crimeReportRepository.findAll();
         
         CrimeReport synthetic = new CrimeReport();
@@ -380,7 +388,7 @@ public class RouteService {
             }
         }
 
-        
+       
         Node start = findNearestNode(request.getStartLat(), request.getStartLng(), nodes.values());
         Node end = findNearestNode(request.getEndLat(), request.getEndLng(), nodes.values());
         if (start == null || end == null) throw new RuntimeException("No nearby road found");
@@ -388,7 +396,7 @@ public class RouteService {
         
         List<Node> path = aStar(start, end);
 
-      
+        
         java.util.List<com.nirapodpoint.backend.model.RouteResponse.Coordinate> polyline = new java.util.ArrayList<>();
         java.util.List<EdgeWeightInfo> edgeWeights = new java.util.ArrayList<>();
         java.util.List<Edge> aStarEdges = new java.util.ArrayList<>();
@@ -417,7 +425,7 @@ public class RouteService {
             }
         }
 
-      
+        
         java.util.List<java.util.List<EdgeWeightInfo>> altPaths = new java.util.ArrayList<>();
         java.util.List<Double> altPathScores = new java.util.ArrayList<>();
         int altCount = 0;
@@ -426,9 +434,9 @@ public class RouteService {
             
             blockedEdge.from.edges.remove(blockedEdge);
             List<Node> altPath = aStar(start, end);
-            
+           
             blockedEdge.from.edges.add(blockedEdge);
-          
+            
             if (altPath.size() > 1 && !altPath.equals(path)) {
                 java.util.List<EdgeWeightInfo> altEdgeWeights = new java.util.ArrayList<>();
                 double totalScore = 0.0;

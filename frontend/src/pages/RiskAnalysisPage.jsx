@@ -17,19 +17,25 @@ import {
 } from "recharts";
 
 const crimeTypeColors = {
-  robbery: "#ef4444",
-  assault: "#a21caf",
-  harassment: "#eab308",
-  theft: "#2563eb",
-  other: "#64748b",
+  murder: "#FF0000",
+  rape: "#FF1493",
+  kidnap: "#8A2BE2",
+  assault: "#FF8C00",
+  robbery: "#008080",
+  harassment: "#FFD700",
+  theft: "#00CED1",
+  others: "#808080",
 };
 
 const typeLabels = {
-  robbery: "Robbery",
-  assault: "Assault",
-  harassment: "Harassment",
-  theft: "Theft",
-  other: "Other",
+  Murder: "murder",
+  Rape: "rape",
+  Kidnap: "kidnap",
+  Assault: "assault",
+  Robbery: "robbery",
+  Harassment: "harassment",
+  Theft: "theft",
+  Others: "others",
 };
 
 export default function RiskAnalysisPage() {
@@ -98,6 +104,7 @@ export default function RiskAnalysisPage() {
       districtCounts[c.district] = (districtCounts[c.district] || 0) + 1;
     }
   });
+
   const topDistricts = Object.entries(districtCounts)
     .sort((a, b) => b[1] - a[1])
     .slice(0, 5);
@@ -116,6 +123,7 @@ export default function RiskAnalysisPage() {
         </div>
       ) : (
         <div className="flex flex-col lg:flex-row gap-8 max-w-7xl mx-auto">
+          {/* Map + Heatmap */}
           <div className="lg:w-2/3 w-full rounded-3xl shadow-xl bg-white/30 backdrop-blur-xl border border-glassyblue-200/40 p-4 mb-6 lg:mb-0">
             <div className="flex flex-row items-center mb-4 gap-4">
               <label className="font-medium text-glassyblue-700">
@@ -127,11 +135,14 @@ export default function RiskAnalysisPage() {
                 className="rounded-lg border border-glassyblue-200 p-2 bg-white/60 focus:outline-none focus:ring-2 focus:ring-glassyblue-400"
               >
                 <option value="all">All</option>
-                <option value="robbery">Robbery</option>
+                <option value="murder">Murder</option>
+                <option value="rape">Rape</option>
+                <option value="kidnap">Kidnap</option>
                 <option value="assault">Assault</option>
+                <option value="robbery">Robbery</option>
                 <option value="harassment">Harassment</option>
                 <option value="theft">Theft</option>
-                <option value="other">Other</option>
+                <option value="others">Others</option>
               </select>
             </div>
             <MapContainer
@@ -159,6 +170,7 @@ export default function RiskAnalysisPage() {
               )}
             </MapContainer>
           </div>
+          {/* Analytics */}
           <div className="lg:w-1/3 w-full flex flex-col gap-6">
             <div className="backdrop-blur-xl bg-white/30 border border-glassyblue-200/40 shadow-2xl rounded-3xl p-6">
               <h2 className="font-semibold mb-2 text-glassyblue-700">

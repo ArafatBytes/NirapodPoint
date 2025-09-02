@@ -4,11 +4,14 @@ import { MapContainer, TileLayer, Marker } from "react-leaflet";
 import L from "leaflet";
 
 const crimeTypeColors = {
-  robbery: "red",
-  assault: "purple",
-  harassment: "gold",
-  theft: "blue",
-  other: "gray",
+  murder: "#FF0000",
+  rape: "#FF1493",
+  kidnap: "#8A2BE2",
+  assault: "#FF8C00",
+  robbery: "#008080",
+  harassment: "#FFD700",
+  theft: "#00CED1",
+  others: "#808080",
 };
 
 const getCrimeIcon = (type) => {
