@@ -20,6 +20,7 @@ import java.util.Map;
 
 import java.util.List;
 import java.util.stream.Collectors;
+import org.springframework.security.access.prepost.PreAuthorize;
 
 @RestController
 @RequestMapping("/api/users")
@@ -145,7 +146,7 @@ public class UserController {
     public ResponseEntity<?> updateOwnInfo(@AuthenticationPrincipal User user,
                                            @RequestBody User update) {
         if (user == null) return ResponseEntity.status(401).body("Unauthorized");
-        
+        // Only update fields that are present (not null) in the request
         if (update.getName() != null) user.setName(update.getName());
         if (update.getEmail() != null) user.setEmail(update.getEmail());
         if (update.getPhone() != null) user.setPhone(update.getPhone());
@@ -176,6 +177,28 @@ public class UserController {
     }
 
     
+    @GetMapping("/me/crime-count")
+    public ResponseEntity<?> getMyCrimeCount(@AuthenticationPrincipal User user) {
+        if (user == null) return ResponseEntity.status(401).body("Unauthorized");
+        long count = crimeReportRepository.countByReporter(user.getId());
+        return ResponseEntity.ok(Map.of("count", count));
+    }
+
+    @GetMapping("/crime-counts")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> getAllUserCrimeCounts(@AuthenticationPrincipal User admin) {
+        if (admin == null || !admin.isAdmin()) {
+            return ResponseEntity.status(403).body("Forbidden: Admins only");
+        }
+        List<User> users = userRepository.findAll();
+        Map<String, Long> counts = new HashMap<>();
+        for (User u : users) {
+            counts.put(u.getId(), crimeReportRepository.countByReporter(u.getId()));
+        }
+        return ResponseEntity.ok(counts);
+    }
+
+    
     @DeleteMapping("/{id}")
     public ResponseEntity<?> deleteUser(@AuthenticationPrincipal User admin, @PathVariable String id) {
         if (admin == null || !admin.isAdmin()) {
@@ -183,7 +206,7 @@ public class UserController {
         }
         User user = userRepository.findById(id).orElse(null);
         if (user == null) return ResponseEntity.status(404).body("User not found");
-        
+    
         crimeReportRepository.deleteByReporter(user.getId());
         userRepository.deleteById(id);
         return ResponseEntity.ok(Map.of("deleted", true, "message", "User and their crimes deleted"));
