@@ -360,7 +360,7 @@ public class RouteService {
     private final Map<Edge, Double> edgeLengthMap = new HashMap<>();
 
     private double haversine(double lat1, double lon1, double lat2, double lon2) {
-        double R = 6371000; // meters
+        double R = 6371000; 
         double dLat = Math.toRadians(lat2 - lat1);
         double dLon = Math.toRadians(lon2 - lon1);
         double a = Math.sin(dLat/2) * Math.sin(dLat/2) +

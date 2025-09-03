@@ -137,7 +137,7 @@ public class CrimeReportService {
             
             if (crime.getTime() != null) {
                 int hour = crime.getTime().getHour();
-                int day = crime.getTime().getDayOfWeek().getValue() % 7; // 0-6, Sunday = 0
+                int day = crime.getTime().getDayOfWeek().getValue() % 7; 
                 hourlyStats.merge(hour, 1, Integer::sum);
                 dailyStats.merge(day, 1, Integer::sum);
             }
