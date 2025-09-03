@@ -8,6 +8,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@vgrid/react-leaflet-heatmap-layer": "^4.0.3",
     "framer-motion": "^12.23.5",
     "leaflet": "^1.9.4",
     "leaflet-color-markers": "^0.1.0",
@@ -16,7 +17,6 @@
     "react-hot-toast": "^2.5.2",
     "react-is": "^19.1.0",
     "react-leaflet": "^4.2.1",
-    "react-leaflet-heatmap-layer-v3": "^3.0.3-beta-1",
     "react-router-dom": "^7.6.3",
     "recharts": "^3.1.0"
   },

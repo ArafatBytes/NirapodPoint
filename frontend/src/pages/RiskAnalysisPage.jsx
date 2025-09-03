@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef, useCallback } from "react";
 import { useUser } from "../context/UserContext";
 import { MapContainer, TileLayer, useMap } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
-import { HeatmapLayer } from "react-leaflet-heatmap-layer-v3";
+import { HeatmapLayerFactory } from "@vgrid/react-leaflet-heatmap-layer";
 import {
   BarChart,
   Bar,
@@ -15,6 +15,9 @@ import {
   Cell,
   Legend,
 } from "recharts";
+
+
+const HeatmapLayer = HeatmapLayerFactory();
 
 const crimeTypeColors = {
   murder: "#FF0000",
@@ -77,7 +80,7 @@ function MapEvents({ onBoundsChange }) {
     if (!map) return;
 
     const handleMoveEnd = () => {
-    
+      
       if (isInitialMount.current) {
         isInitialMount.current = false;
         return;
@@ -146,7 +149,7 @@ export default function RiskAnalysisPage() {
     );
   };
 
-
+  
   const fetchCrimesInBounds = useCallback(
     async (mapBounds, type = typeFilter) => {
       if (!mapBounds || !mapBounds._southWest || !mapBounds._northEast) {
@@ -158,19 +161,21 @@ export default function RiskAnalysisPage() {
         return;
       }
 
+      
       if (!areBoundsDifferent(previousBounds.current, mapBounds)) {
         return;
       }
 
-  
+      
       if (currentFetch.current) {
         currentFetch.current.abort();
       }
 
+      
       const abortController = new AbortController();
       currentFetch.current = abortController;
 
- 
+      
       if (isInitialFetch.current) {
         setInitialLoading(true);
       } else {
@@ -203,7 +208,7 @@ export default function RiskAnalysisPage() {
           statsRes.json(),
         ]);
 
-       
+        
         previousBounds.current = mapBounds;
 
         if (!crimesData || !Array.isArray(crimesData.crimes)) {
@@ -221,7 +226,7 @@ export default function RiskAnalysisPage() {
 
         setStats(statsData);
       } catch (error) {
-      
+        
         if (error.name !== "AbortError") {
           setCrimes([]);
           setStats({
@@ -233,7 +238,7 @@ export default function RiskAnalysisPage() {
           });
         }
       } finally {
-       
+        
         if (currentFetch.current === abortController) {
           if (isInitialFetch.current) {
             setInitialLoading(false);
@@ -256,7 +261,7 @@ export default function RiskAnalysisPage() {
     };
     fetchCrimesInBounds(initialBounds);
 
-  
+
     return () => {
       if (currentFetch.current) {
         currentFetch.current.abort();
@@ -264,7 +269,7 @@ export default function RiskAnalysisPage() {
     };
   }, [fetchCrimesInBounds]);
 
-
+  
   const handleBoundsChange = useCallback(
     async (newBounds) => {
       setBounds(newBounds);
@@ -273,7 +278,7 @@ export default function RiskAnalysisPage() {
     [fetchCrimesInBounds]
   );
 
-
+  
   const handleFilterChange = (e) => {
     const newFilter = e.target.value;
     setTypeFilter(newFilter);
@@ -282,11 +287,11 @@ export default function RiskAnalysisPage() {
     }
   };
 
-
+  
   const filteredCrimes =
     typeFilter === "all" ? crimes : crimes.filter((c) => c.type === typeFilter);
 
-
+  
   const heatmapPoints = filteredCrimes
     .filter((c) => c.lat && c.lng)
     .map((c) => [c.lat, c.lng, 1]);
@@ -302,7 +307,7 @@ export default function RiskAnalysisPage() {
         </div>
       ) : (
         <div className="flex flex-col lg:flex-row gap-8 max-w-7xl mx-auto">
-          {/* Map + Heatmap */}
+          
           <div className="lg:w-2/3 w-full rounded-3xl shadow-xl bg-white/30 backdrop-blur-xl border border-glassyblue-200/40 p-4 mb-6 lg:mb-0">
             <div className="flex flex-row items-center mb-4 gap-4">
               <label className="font-medium text-glassyblue-700">
@@ -415,7 +420,7 @@ export default function RiskAnalysisPage() {
               </div>
             </div>
           </div>
-          {/* Analytics */}
+        
           <div className="lg:w-1/3 w-full flex flex-col gap-6">
             <div className="backdrop-blur-xl bg-white/30 border border-glassyblue-200/40 shadow-2xl rounded-3xl p-6">
               <h2 className="font-semibold mb-2 text-glassyblue-700">
