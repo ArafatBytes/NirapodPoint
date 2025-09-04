@@ -4,3 +4,5 @@ frontend/.env
 frontend/package-lock.json
 
 backend/target
+config.bat
+node_modules
