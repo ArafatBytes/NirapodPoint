@@ -144,11 +144,10 @@ export default function RegisterPage() {
       canvas.height = video.videoHeight;
       context.drawImage(video, 0, 0);
 
-      canvas.toBlob((blob) => {
-        const file = new File([blob], "photo.jpg", { type: "image/jpeg" });
-        setForm((f) => ({ ...f, photo: file }));
-        setPhotoPreview(URL.createObjectURL(blob));
-      }, "image/jpeg");
+      // Convert canvas to base64
+      const dataUrl = canvas.toDataURL("image/jpeg");
+      setForm((f) => ({ ...f, photo: dataUrl }));
+      setPhotoPreview(dataUrl);
 
       // Stop camera
       const stream = video.srcObject;
@@ -194,15 +193,38 @@ export default function RegisterPage() {
     e.preventDefault();
     if (!validate()) return;
     setLoading(true);
-    const ok = await register(form);
+    // Convert form object to FormData
+    const formData = new FormData();
+    formData.append("name", form.name);
+    formData.append("email", form.email);
+    formData.append("phone", form.phone);
+    formData.append("password", form.password);
+    if (form.nidFront) formData.append("nidFront", form.nidFront);
+    if (form.nidBack) formData.append("nidBack", form.nidBack);
+    // If photo is a File, append as file; if string (base64), append as string
+    if (form.photo) formData.append("photo", form.photo); // Always a base64 string now
+    const ok = await register(formData);
     setLoading(false);
     if (ok) navigate("/");
   }
 
   function handleChange(e) {
     const { name, value, files } = e.target;
-    if (files) {
-      setForm((f) => ({ ...f, [name]: files[0] }));
+    if (files && files[0]) {
+      if (name === "photo" || name === "nidFront" || name === "nidBack") {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          if (name === "photo") {
+            setForm((f) => ({ ...f, photo: reader.result }));
+            setPhotoPreview(reader.result);
+          } else {
+            setForm((f) => ({ ...f, [name]: files[0] }));
+          }
+        };
+        reader.readAsDataURL(files[0]);
+      } else {
+        setForm((f) => ({ ...f, [name]: files[0] }));
+      }
     } else {
       setForm((f) => ({ ...f, [name]: value }));
     }
