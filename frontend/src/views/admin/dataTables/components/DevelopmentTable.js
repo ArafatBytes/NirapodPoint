@@ -1,9 +1,9 @@
+'use client';
 /* eslint-disable */
 
 import {
   Box,
   Flex,
-  Icon,
   Progress,
   Table,
   Tbody,
@@ -24,9 +24,9 @@ import {
 // Custom components
 import Card from 'components/card/Card';
 import Menu from 'components/menu/MainMenu';
+import { AndroidLogo, AppleLogo, WindowsLogo } from 'components/icons/Icons';
 import * as React from 'react';
 // Assets
-import { MdCancel, MdCheckCircle, MdOutlineError } from 'react-icons/md';
 
 const columnHelper = createColumnHelper();
 
@@ -35,6 +35,7 @@ export default function ComplexTable(props) {
   const { tableData } = props;
   const [sorting, setSorting] = React.useState([]);
   const textColor = useColorModeValue('secondaryGray.900', 'white');
+  const iconColor = useColorModeValue('secondaryGray.500', 'white');
   const borderColor = useColorModeValue('gray.200', 'whiteAlpha.100');
   let defaultData = tableData;
   const columns = [
@@ -58,8 +59,8 @@ export default function ComplexTable(props) {
         </Flex>
       ),
     }),
-    columnHelper.accessor('status', {
-      id: 'status',
+    columnHelper.accessor('tech', {
+      id: 'tech',
       header: () => (
         <Text
           justifyContent="space-between"
@@ -72,32 +73,33 @@ export default function ComplexTable(props) {
       ),
       cell: (info) => (
         <Flex align="center">
-          <Icon
-            w="24px"
-            h="24px"
-            me="5px"
-            color={
-              info.getValue() === 'Approved'
-                ? 'green.500'
-                : info.getValue() === 'Disable'
-                ? 'red.500'
-                : info.getValue() === 'Error'
-                ? 'orange.500'
-                : null
+          {info.getValue().map((item, key) => {
+            if (item === 'apple') {
+              return (
+                <AppleLogo
+                  key={key}
+                  color={iconColor}
+                  me="16px"
+                  h="18px"
+                  w="15px"
+                />
+              );
+            } else if (item === 'android') {
+              return (
+                <AndroidLogo
+                  key={key}
+                  color={iconColor}
+                  me="16px"
+                  h="18px"
+                  w="16px"
+                />
+              );
+            } else if (item === 'windows') {
+              return (
+                <WindowsLogo key={key} color={iconColor} h="18px" w="19px" />
+              );
             }
-            as={
-              info.getValue() === 'Approved'
-                ? MdCheckCircle
-                : info.getValue() === 'Disable'
-                ? MdCancel
-                : info.getValue() === 'Error'
-                ? MdOutlineError
-                : null
-            }
-          />
-          <Text color={textColor} fontSize="sm" fontWeight="700">
-            {info.getValue()}
-          </Text>
+          })}
         </Flex>
       ),
     }),
@@ -133,11 +135,14 @@ export default function ComplexTable(props) {
       ),
       cell: (info) => (
         <Flex align="center">
+          <Text me="10px" color={textColor} fontSize="sm" fontWeight="700">
+            {info.getValue()}%
+          </Text>
           <Progress
             variant="table"
             colorScheme="brandScheme"
             h="8px"
-            w="108px"
+            w="63px"
             value={info.getValue()}
           />
         </Flex>
@@ -170,7 +175,7 @@ export default function ComplexTable(props) {
           fontWeight="700"
           lineHeight="100%"
         >
-          Complex Table
+          Development Table
         </Text>
         <Menu />
       </Flex>

@@ -21,11 +21,9 @@ import {
   getSortedRowModel,
   useReactTable,
 } from '@tanstack/react-table';
-// Custom components
 import Card from 'components/card/Card';
 import Menu from 'components/menu/MainMenu';
 import * as React from 'react';
-// Assets
 import { MdCancel, MdCheckCircle, MdOutlineError } from 'react-icons/md';
 
 const columnHelper = createColumnHelper();
@@ -213,7 +211,7 @@ export default function ComplexTable(props) {
           <Tbody>
             {table
               .getRowModel()
-              .rows.slice(0, 11)
+              .rows.slice(0, 5)
               .map((row) => {
                 return (
                   <Tr key={row.id}>

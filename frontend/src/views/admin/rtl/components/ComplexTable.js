@@ -213,7 +213,7 @@ export default function ComplexTable(props) {
           <Tbody>
             {table
               .getRowModel()
-              .rows.slice(0, 11)
+              .rows.slice(0, 5)
               .map((row) => {
                 return (
                   <Tr key={row.id}>
