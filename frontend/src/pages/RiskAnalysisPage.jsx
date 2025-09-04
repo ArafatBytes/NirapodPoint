@@ -4,19 +4,39 @@ import { MapContainer, TileLayer, useMap } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import { HeatmapLayerFactory } from "@vgrid/react-leaflet-heatmap-layer";
 import {
+  Box,
+  Flex,
+  Text,
+  Select,
+  SimpleGrid,
+  useColorModeValue,
+  Icon,
+  Spinner,
+} from "@chakra-ui/react";
+import Card from "../components/card/Card";
+import {
+  MdLocationOn,
+  MdOutlineWarning,
+  MdSecurity,
+  MdTimeline,
+} from "react-icons/md";
+import IconBox from "../components/icons/IconBox";
+import {
   BarChart,
   Bar,
   XAxis,
   YAxis,
-  Tooltip,
+  Tooltip as RechartsTooltip,
   ResponsiveContainer,
   PieChart,
   Pie,
   Cell,
   Legend,
 } from "recharts";
+import { motion, AnimatePresence } from "framer-motion";
+import FixedPlugin from "../components/fixedPlugin/FixedPlugin";
 
-
+// Create the HeatmapLayer component from the factory
 const HeatmapLayer = HeatmapLayerFactory();
 
 const crimeTypeColors = {
@@ -41,7 +61,35 @@ const typeLabels = {
   others: "others",
 };
 
+// Purple shades from Horizon UI theme
+const purpleShades = [
+  "#E9E3FF", // brand.100
+  "#7551FF", // brand.400
+  "#422AFB", // brand.500
+  "#3311DB", // brand.600
+  "#190793", // brand.800
+  "#11047A", // brand.900
+  "#a259ec", // custom
+  "#6c47ff", // custom
+  "#b39ddb", // custom
+  "#9575cd", // custom
+  "#7e57c2", // custom
+  "#5e35b1", // custom
+  "#512da8", // custom
+  "#4527a0", // custom
+  "#311b92", // custom
+  "#ede7f6", // custom
+  "#d1c4e9", // custom
+  "#b39ddb", // custom
+  "#9575cd", // custom
+  "#7e57c2", // custom
+  "#5e35b1", // custom
+  "#512da8", // custom
+  "#4527a0", // custom
+  "#311b92", // custom
+];
 
+// Debounce function with promise support
 function debounce(func, wait) {
   let timeout;
   let currentPromise = null;
@@ -66,7 +114,7 @@ function debounce(func, wait) {
   };
 }
 
-
+// Add MapEvents component to handle map movements
 function MapEvents({ onBoundsChange }) {
   const map = useMap();
   const isInitialMount = useRef(true);
@@ -80,7 +128,7 @@ function MapEvents({ onBoundsChange }) {
     if (!map) return;
 
     const handleMoveEnd = () => {
-      
+      // Skip if this is the initial mount
       if (isInitialMount.current) {
         isInitialMount.current = false;
         return;
@@ -114,6 +162,37 @@ function MapEvents({ onBoundsChange }) {
   return null;
 }
 
+// Animation variants
+const fadeDown = {
+  hidden: { opacity: 0, y: -30 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.7 } },
+};
+const fadeUp = {
+  hidden: { opacity: 0, y: 30 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.7 } },
+};
+const scaleIn = {
+  hidden: { opacity: 0, scale: 0.95 },
+  visible: { opacity: 1, scale: 1, transition: { duration: 0.6 } },
+};
+const staggerGrid = {
+  visible: { transition: { staggerChildren: 0.15 } },
+};
+const fadeLeft = {
+  hidden: { opacity: 0, x: -40 },
+  visible: { opacity: 1, x: 0, transition: { duration: 0.6 } },
+};
+const fadeRight = {
+  hidden: { opacity: 0, x: 40 },
+  visible: { opacity: 1, x: 0, transition: { duration: 0.6 } },
+};
+const pulse = {
+  animate: {
+    opacity: [1, 0.7, 1],
+    transition: { repeat: Infinity, duration: 1.2 },
+  },
+};
+
 export default function RiskAnalysisPage() {
   const { jwt } = useUser();
   const [crimes, setCrimes] = useState([]);
@@ -133,11 +212,11 @@ export default function RiskAnalysisPage() {
   const isInitialFetch = useRef(true);
   const currentFetch = useRef(null);
 
-  
+  // Function to check if bounds are significantly different
   const areBoundsDifferent = (oldBounds, newBounds) => {
     if (!oldBounds || !newBounds) return true;
 
-    const threshold = 0.0001; 
+    const threshold = 0.0001; // About 11 meters at the equator
     return (
       Math.abs(oldBounds._southWest.lat - newBounds._southWest.lat) >
         threshold ||
@@ -149,7 +228,7 @@ export default function RiskAnalysisPage() {
     );
   };
 
-  
+  // Function to fetch crimes within bounds
   const fetchCrimesInBounds = useCallback(
     async (mapBounds, type = typeFilter) => {
       if (!mapBounds || !mapBounds._southWest || !mapBounds._northEast) {
@@ -161,21 +240,21 @@ export default function RiskAnalysisPage() {
         return;
       }
 
-      
+      // Check if the bounds have changed significantly
       if (!areBoundsDifferent(previousBounds.current, mapBounds)) {
         return;
       }
 
-      
+      // Cancel any ongoing fetch
       if (currentFetch.current) {
         currentFetch.current.abort();
       }
 
-      
+      // Create new abort controller for this fetch
       const abortController = new AbortController();
       currentFetch.current = abortController;
 
-      
+      // Set appropriate loading state
       if (isInitialFetch.current) {
         setInitialLoading(true);
       } else {
@@ -208,7 +287,7 @@ export default function RiskAnalysisPage() {
           statsRes.json(),
         ]);
 
-        
+        // Update previous bounds after successful fetch
         previousBounds.current = mapBounds;
 
         if (!crimesData || !Array.isArray(crimesData.crimes)) {
@@ -226,7 +305,7 @@ export default function RiskAnalysisPage() {
 
         setStats(statsData);
       } catch (error) {
-        
+        // Only handle error if it's not an abort error
         if (error.name !== "AbortError") {
           setCrimes([]);
           setStats({
@@ -238,7 +317,7 @@ export default function RiskAnalysisPage() {
           });
         }
       } finally {
-        
+        // Only update loading states if this is still the current fetch
         if (currentFetch.current === abortController) {
           if (isInitialFetch.current) {
             setInitialLoading(false);
@@ -253,7 +332,7 @@ export default function RiskAnalysisPage() {
     [jwt, typeFilter]
   );
 
-  
+  // Add initial data fetch when component mounts
   useEffect(() => {
     const initialBounds = {
       _southWest: { lat: 23.685 - 0.5, lng: 90.3563 - 0.5 },
@@ -261,7 +340,7 @@ export default function RiskAnalysisPage() {
     };
     fetchCrimesInBounds(initialBounds);
 
-
+    // Cleanup function to abort any ongoing fetch when component unmounts
     return () => {
       if (currentFetch.current) {
         currentFetch.current.abort();
@@ -269,7 +348,7 @@ export default function RiskAnalysisPage() {
     };
   }, [fetchCrimesInBounds]);
 
-  
+  // Handle bounds change
   const handleBoundsChange = useCallback(
     async (newBounds) => {
       setBounds(newBounds);
@@ -278,7 +357,7 @@ export default function RiskAnalysisPage() {
     [fetchCrimesInBounds]
   );
 
-  
+  // Handle filter change
   const handleFilterChange = (e) => {
     const newFilter = e.target.value;
     setTypeFilter(newFilter);
@@ -287,209 +366,512 @@ export default function RiskAnalysisPage() {
     }
   };
 
-  
+  // Filtered crimes for heatmap
   const filteredCrimes =
     typeFilter === "all" ? crimes : crimes.filter((c) => c.type === typeFilter);
 
-  
+  // Heatmap points: [lat, lng, intensity]
   const heatmapPoints = filteredCrimes
     .filter((c) => c.lat && c.lng)
     .map((c) => [c.lat, c.lng, 1]);
 
+  // Chakra Color Mode
+  const brandColor = useColorModeValue("brand.500", "white");
+  const boxBg = useColorModeValue("secondaryGray.300", "whiteAlpha.100");
+  const textColor = useColorModeValue("secondaryGray.900", "white");
+  const cardBg = useColorModeValue("white", "navy.700");
+  const cardShadow = useColorModeValue(
+    "0px 18px 40px rgba(112, 144, 176, 0.12)",
+    "unset"
+  );
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-glassyblue-100 via-white to-glassyblue-200 pt-24 pb-12 px-2">
-      <h1 className="text-3xl md:text-4xl font-extrabold text-glassyblue-700 mb-8 text-center drop-shadow-lg">
-        Risk Analysis
-      </h1>
+    <Box
+      pt={{ base: "130px", md: "80px", xl: "80px" }}
+      mt={12}
+      mb={12}
+      ml={12}
+      mr={12}
+    >
+      <motion.div variants={fadeDown} initial="hidden" animate="visible">
+        <Text
+          textAlign="center"
+          fontSize="3xl"
+          fontWeight="extrabold"
+          color={textColor}
+          mb="8"
+          dropShadow="lg"
+        >
+          Risk Analysis
+        </Text>
+      </motion.div>
       {initialLoading ? (
-        <div className="text-center text-lg text-glassyblue-600">
-          Loading...
-        </div>
+        <Flex justify="center" align="center" minH="60vh">
+          <Spinner size="xl" color="brand.500" thickness="4px" speed="0.65s" />
+        </Flex>
       ) : (
-        <div className="flex flex-col lg:flex-row gap-8 max-w-7xl mx-auto">
-          
-          <div className="lg:w-2/3 w-full rounded-3xl shadow-xl bg-white/30 backdrop-blur-xl border border-glassyblue-200/40 p-4 mb-6 lg:mb-0">
-            <div className="flex flex-row items-center mb-4 gap-4">
-              <label className="font-medium text-glassyblue-700">
-                Crime Type:
-              </label>
-              <select
-                value={typeFilter}
-                onChange={handleFilterChange}
-                className="rounded-lg border border-glassyblue-200 p-2 bg-white/60 focus:outline-none focus:ring-2 focus:ring-glassyblue-400"
-              >
-                <option value="all">All</option>
-                <option value="murder">Murder</option>
-                <option value="rape">Rape</option>
-                <option value="kidnap">Kidnap</option>
-                <option value="assault">Assault</option>
-                <option value="robbery">Robbery</option>
-                <option value="harassment">Harassment</option>
-                <option value="theft">Theft</option>
-                <option value="others">Others</option>
-              </select>
-            </div>
-            <div className="relative">
-              <MapContainer
-                center={[23.685, 90.3563]}
-                zoom={7}
-                style={{ width: "100%", height: "400px" }}
-                className="rounded-2xl z-0"
-              >
-                <TileLayer
-                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                />
-                <MapEvents onBoundsChange={handleBoundsChange} />
-                {heatmapPoints.length > 0 && (
-                  <HeatmapLayer
-                    fitBoundsOnLoad
-                    fitBoundsOnUpdate
-                    points={heatmapPoints}
-                    longitudeExtractor={(m) => m[1]}
-                    latitudeExtractor={(m) => m[0]}
-                    intensityExtractor={(m) => m[2]}
-                    radius={20}
-                    blur={18}
-                    max={2}
-                  />
-                )}
-              </MapContainer>
-              {updating && (
-                <div className="absolute top-2 right-2 bg-white/80 px-3 py-1 rounded-full text-sm text-glassyblue-600 shadow-md">
-                  Updating...
-                </div>
-              )}
-            </div>
-            <div className="grid grid-cols-2 gap-4 pt-8">
-              <div className="backdrop-blur-xl bg-white/30 border border-glassyblue-200/40 shadow-2xl rounded-3xl p-6 text-center">
-                <h2 className="font-semibold mb-2 text-glassyblue-700">
-                  Top 5 Dangerous Districts
-                </h2>
-                <ul className="list-disc list-inside text-glassyblue-700">
-                  {stats.dangerousDistricts.length === 0 ? (
-                    <li>No data</li>
-                  ) : (
-                    stats.dangerousDistricts.map((district, index) => (
-                      <li key={district.district} className="mb-2">
-                        <span className="font-bold">{district.district}</span>:{" "}
-                        <span className="text-red-600 font-semibold">
-                          {district.crimeCount} crimes
-                        </span>
-                        <div className="text-sm text-gray-600 ml-5">
-                          Most common: {district.mostCommonCrime}
-                          <br />
-                          Risk score: {district.severityScore.toFixed(1)}
-                        </div>
-                        {index === 0 && (
-                          <span className="ml-2 text-red-500">
-                            🔴 Highest Risk
-                          </span>
+        <motion.div variants={staggerGrid} initial="hidden" animate="visible">
+          {/* Main Grid */}
+          <SimpleGrid columns={{ base: 1, lg: 2 }} gap="20px" mb="20px">
+            {/* Map Card */}
+            <motion.div variants={scaleIn}>
+              <Card>
+                <Flex direction="column" mb="40px">
+                  <Flex align="center" mb="20px">
+                    <IconBox
+                      w="56px"
+                      h="56px"
+                      bg={boxBg}
+                      icon={
+                        <Icon
+                          w="32px"
+                          h="32px"
+                          as={MdLocationOn}
+                          color={brandColor}
+                        />
+                      }
+                    />
+                    <Text
+                      ms="16px"
+                      fontSize="2xl"
+                      fontWeight="700"
+                      color={textColor}
+                    >
+                      Crime Heatmap
+                    </Text>
+                  </Flex>
+                  <Flex direction="column">
+                    <Flex align="center" mb={4}>
+                      <Text
+                        fontSize="md"
+                        fontWeight="500"
+                        color={textColor}
+                        me={2}
+                      >
+                        Crime Type:
+                      </Text>
+                      <Select
+                        value={typeFilter}
+                        onChange={handleFilterChange}
+                        w="200px"
+                        variant="filled"
+                        bg={boxBg}
+                      >
+                        <option value="all">All</option>
+                        <option value="murder">Murder</option>
+                        <option value="rape">Rape</option>
+                        <option value="kidnap">Kidnap</option>
+                        <option value="assault">Assault</option>
+                        <option value="robbery">Robbery</option>
+                        <option value="harassment">Harassment</option>
+                        <option value="theft">Theft</option>
+                        <option value="others">Others</option>
+                      </Select>
+                    </Flex>
+                    <Box
+                      position="relative"
+                      h="400px"
+                      borderRadius="16px"
+                      overflow="hidden"
+                    >
+                      <motion.div
+                        variants={scaleIn}
+                        initial="hidden"
+                        animate="visible"
+                        style={{ height: "100%" }}
+                      >
+                        <MapContainer
+                          center={[23.685, 90.3563]}
+                          zoom={7}
+                          style={{ width: "100%", height: "100%", zIndex: 1 }}
+                        >
+                          <TileLayer
+                            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                          />
+                          <MapEvents onBoundsChange={handleBoundsChange} />
+                          {heatmapPoints.length > 0 && (
+                            <HeatmapLayer
+                              fitBoundsOnLoad
+                              fitBoundsOnUpdate
+                              points={heatmapPoints}
+                              longitudeExtractor={(m) => m[1]}
+                              latitudeExtractor={(m) => m[0]}
+                              intensityExtractor={(m) => m[2]}
+                              radius={20}
+                              blur={18}
+                              max={2}
+                            />
+                          )}
+                        </MapContainer>
+                      </motion.div>
+                      <AnimatePresence>
+                        {updating && (
+                          <motion.div
+                            initial={{ opacity: 0, scale: 0.9 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.9 }}
+                            transition={{ duration: 0.4 }}
+                            style={{ position: "absolute", top: 8, right: 8 }}
+                          >
+                            <motion.div variants={pulse} animate="animate">
+                              <Flex
+                                bg="whiteAlpha.900"
+                                px={3}
+                                py={1}
+                                borderRadius="full"
+                                align="center"
+                                shadow="md"
+                              >
+                                <Spinner size="sm" color="brand.500" mr={2} />
+                                <Text fontSize="sm" color="gray.600">
+                                  Updating...
+                                </Text>
+                              </Flex>
+                            </motion.div>
+                          </motion.div>
                         )}
-                      </li>
-                    ))
-                  )}
-                </ul>
-              </div>
-              <div className="backdrop-blur-xl bg-white/30 border border-glassyblue-200/40 shadow-2xl rounded-3xl p-6 text-center">
-                <h2 className="font-semibold mb-2 text-glassyblue-700">
-                  Top 5 Safest Districts
-                </h2>
-                <ul className="list-disc list-inside text-glassyblue-700">
-                  {stats.safestDistricts.length === 0 ? (
-                    <li>No data</li>
-                  ) : (
-                    stats.safestDistricts.map((district, index) => (
-                      <li key={district.district} className="mb-2">
-                        <span className="font-bold">{district.district}</span>:{" "}
-                        <span className="text-green-600 font-semibold">
-                          {district.crimeCount} crimes
-                        </span>
-                        <div className="text-sm text-gray-600 ml-5">
-                          Most common: {district.mostCommonCrime}
-                          <br />
-                          Risk score: {district.severityScore.toFixed(1)}
-                        </div>
-                        {index === 0 && (
-                          <span className="ml-2 text-green-500">✅ Safest</span>
-                        )}
-                      </li>
-                    ))
-                  )}
-                </ul>
-              </div>
-            </div>
-          </div>
-        
-          <div className="lg:w-1/3 w-full flex flex-col gap-6">
-            <div className="backdrop-blur-xl bg-white/30 border border-glassyblue-200/40 shadow-2xl rounded-3xl p-6">
-              <h2 className="font-semibold mb-2 text-glassyblue-700">
-                Crimes by Hour
-              </h2>
-              <ResponsiveContainer width="100%" height={180}>
-                <BarChart data={stats.hourlyStats}>
-                  <XAxis dataKey="hour" />
-                  <YAxis />
-                  <Tooltip />
-                  <Bar dataKey="count" fill="#8884d8" />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-            <div className="backdrop-blur-xl bg-white/30 border border-glassyblue-200/40 shadow-2xl rounded-3xl p-6">
-              <h2 className="font-semibold mb-2 text-glassyblue-700">
-                Crimes by Day
-              </h2>
-              <ResponsiveContainer width="100%" height={180}>
-                <BarChart data={stats.dailyStats}>
-                  <XAxis dataKey="day" />
-                  <YAxis />
-                  <Tooltip />
-                  <Bar dataKey="count" fill="#82ca9d" />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-            <div className="backdrop-blur-xl bg-white/30 border border-glassyblue-200/40 shadow-2xl rounded-3xl p-6">
-              <h2 className="font-semibold mb-2 text-glassyblue-700">
-                Crime Type Distribution
-              </h2>
-              <ResponsiveContainer width="100%" height={260}>
-                <PieChart>
-                  <Pie
-                    data={stats.crimeTypeStats}
-                    dataKey="count"
-                    nameKey="type"
-                    cx="50%"
-                    cy="50%"
-                    outerRadius={60}
-                    label={({ type }) => typeLabels[type]}
-                  >
-                    {stats.crimeTypeStats.map((entry, idx) => (
-                      <Cell
-                        key={`cell-${idx}`}
-                        fill={crimeTypeColors[entry.type] || "#808080"}
+                      </AnimatePresence>
+                    </Box>
+                  </Flex>
+                </Flex>
+              </Card>
+            </motion.div>
+
+            {/* Statistics Cards */}
+            <SimpleGrid columns={{ base: 1, md: 2 }} gap="20px">
+              {/* Dangerous Districts Card */}
+              <motion.div
+                variants={fadeLeft}
+                initial="hidden"
+                animate="visible"
+              >
+                <Card>
+                  <Flex direction="column">
+                    <Flex align="center" mb="20px">
+                      <IconBox
+                        w="56px"
+                        h="56px"
+                        bg={boxBg}
+                        icon={
+                          <Icon
+                            w="32px"
+                            h="32px"
+                            as={MdOutlineWarning}
+                            color="red.500"
+                          />
+                        }
                       />
-                    ))}
-                  </Pie>
-                  <Legend
-                    formatter={(value) => typeLabels[value]}
-                    wrapperStyle={{ paddingTop: "10px" }}
-                  />
-                  <Tooltip
-                    formatter={(value, name) => [value, typeLabels[name]]}
-                    wrapperStyle={{ zIndex: 100 }}
-                    contentStyle={{
-                      backgroundColor: "rgba(255, 255, 255, 0.9)",
-                      border: "1px solid #ccc",
-                      borderRadius: "4px",
-                      padding: "8px",
-                    }}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-        </div>
+                      <Text
+                        ms="16px"
+                        fontSize="lg"
+                        fontWeight="700"
+                        color={textColor}
+                      >
+                        High Risk Areas
+                      </Text>
+                    </Flex>
+                    <Box>
+                      <AnimatePresence>
+                        {stats.dangerousDistricts.map((district, index) => (
+                          <motion.div
+                            key={district.district}
+                            variants={fadeLeft}
+                            initial="hidden"
+                            animate="visible"
+                            exit="hidden"
+                            transition={{ delay: index * 0.08 }}
+                          >
+                            <Flex
+                              justify="space-between"
+                              align="center"
+                              mb={2}
+                              p={3}
+                              bg={boxBg}
+                              borderRadius="12px"
+                            >
+                              <Box>
+                                <Text fontWeight="600" color={textColor}>
+                                  {district.district}
+                                </Text>
+                                <Text fontSize="sm" color="gray.500">
+                                  Most common: {district.mostCommonCrime}
+                                </Text>
+                              </Box>
+                              <Box textAlign="right">
+                                <Text fontWeight="600" color="red.500">
+                                  {district.crimeCount} crimes
+                                </Text>
+                                <Text fontSize="sm" color="gray.500">
+                                  Risk: {district.severityScore.toFixed(1)}
+                                </Text>
+                              </Box>
+                            </Flex>
+                          </motion.div>
+                        ))}
+                      </AnimatePresence>
+                    </Box>
+                  </Flex>
+                </Card>
+              </motion.div>
+
+              {/* Safest Districts Card */}
+              <motion.div
+                variants={fadeRight}
+                initial="hidden"
+                animate="visible"
+              >
+                <Card>
+                  <Flex direction="column">
+                    <Flex align="center" mb="20px">
+                      <IconBox
+                        w="56px"
+                        h="56px"
+                        bg={boxBg}
+                        icon={
+                          <Icon
+                            w="32px"
+                            h="32px"
+                            as={MdSecurity}
+                            color="green.500"
+                          />
+                        }
+                      />
+                      <Text
+                        ms="16px"
+                        fontSize="lg"
+                        fontWeight="700"
+                        color={textColor}
+                      >
+                        Safe Areas
+                      </Text>
+                    </Flex>
+                    <Box>
+                      <AnimatePresence>
+                        {stats.safestDistricts.map((district, index) => (
+                          <motion.div
+                            key={district.district}
+                            variants={fadeRight}
+                            initial="hidden"
+                            animate="visible"
+                            exit="hidden"
+                            transition={{ delay: index * 0.08 }}
+                          >
+                            <Flex
+                              justify="space-between"
+                              align="center"
+                              mb={2}
+                              p={3}
+                              bg={boxBg}
+                              borderRadius="12px"
+                            >
+                              <Box>
+                                <Text fontWeight="600" color={textColor}>
+                                  {district.district}
+                                </Text>
+                                <Text fontSize="sm" color="gray.500">
+                                  Most common: {district.mostCommonCrime}
+                                </Text>
+                              </Box>
+                              <Box textAlign="right">
+                                <Text fontWeight="600" color="green.500">
+                                  {district.crimeCount} crimes
+                                </Text>
+                                <Text fontSize="sm" color="gray.500">
+                                  Risk: {district.severityScore.toFixed(1)}
+                                </Text>
+                              </Box>
+                            </Flex>
+                          </motion.div>
+                        ))}
+                      </AnimatePresence>
+                    </Box>
+                  </Flex>
+                </Card>
+              </motion.div>
+            </SimpleGrid>
+          </SimpleGrid>
+
+          {/* Charts Grid */}
+          <SimpleGrid columns={{ base: 1, md: 3 }} gap="20px">
+            {/* Hourly Stats Card */}
+            <motion.div variants={fadeUp} initial="hidden" animate="visible">
+              <Card>
+                <Flex direction="column">
+                  <Flex align="center" mb="20px">
+                    <IconBox
+                      w="56px"
+                      h="56px"
+                      bg={boxBg}
+                      icon={
+                        <Icon
+                          w="32px"
+                          h="32px"
+                          as={MdTimeline}
+                          color={brandColor}
+                        />
+                      }
+                    />
+                    <Text
+                      ms="16px"
+                      fontSize="lg"
+                      fontWeight="700"
+                      color={textColor}
+                    >
+                      Hourly Crime Trends
+                    </Text>
+                  </Flex>
+                  <Box h="240px">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={stats.hourlyStats}>
+                        <XAxis dataKey="hour" />
+                        <YAxis />
+                        <RechartsTooltip />
+                        <Bar dataKey="count" radius={[4, 4, 0, 0]}>
+                          {stats.hourlyStats.map((entry, idx) => (
+                            <Cell
+                              key={`cell-hour-${idx}`}
+                              fill={purpleShades[idx % purpleShades.length]}
+                            />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </Box>
+                </Flex>
+              </Card>
+            </motion.div>
+
+            {/* Daily Stats Card */}
+            <motion.div
+              variants={fadeUp}
+              initial="hidden"
+              animate="visible"
+              transition={{ delay: 0.1 }}
+            >
+              <Card>
+                <Flex direction="column">
+                  <Flex align="center" mb="20px">
+                    <IconBox
+                      w="56px"
+                      h="56px"
+                      bg={boxBg}
+                      icon={
+                        <Icon
+                          w="32px"
+                          h="32px"
+                          as={MdTimeline}
+                          color={brandColor}
+                        />
+                      }
+                    />
+                    <Text
+                      ms="16px"
+                      fontSize="lg"
+                      fontWeight="700"
+                      color={textColor}
+                    >
+                      Daily Crime Patterns
+                    </Text>
+                  </Flex>
+                  <Box h="240px">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={stats.dailyStats}>
+                        <XAxis dataKey="day" />
+                        <YAxis />
+                        <RechartsTooltip />
+                        <Bar dataKey="count" radius={[4, 4, 0, 0]}>
+                          {stats.dailyStats.map((entry, idx) => (
+                            <Cell
+                              key={`cell-day-${idx}`}
+                              fill={purpleShades[idx % purpleShades.length]}
+                            />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </Box>
+                </Flex>
+              </Card>
+            </motion.div>
+
+            {/* Crime Type Distribution Card */}
+            <motion.div
+              variants={fadeUp}
+              initial="hidden"
+              animate="visible"
+              transition={{ delay: 0.2 }}
+            >
+              <Card>
+                <Flex direction="column">
+                  <Flex align="center" mb="20px">
+                    <IconBox
+                      w="56px"
+                      h="56px"
+                      bg={boxBg}
+                      icon={
+                        <Icon
+                          w="32px"
+                          h="32px"
+                          as={MdTimeline}
+                          color={brandColor}
+                        />
+                      }
+                    />
+                    <Text
+                      ms="16px"
+                      fontSize="lg"
+                      fontWeight="700"
+                      color={textColor}
+                    >
+                      Crime Type Distribution
+                    </Text>
+                  </Flex>
+                  <Box h="240px">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={stats.crimeTypeStats}
+                          dataKey="count"
+                          nameKey="type"
+                          cx="50%"
+                          cy="50%"
+                          outerRadius={80}
+                          label={({ type }) => typeLabels[type]}
+                        >
+                          {stats.crimeTypeStats.map((entry, idx) => (
+                            <Cell
+                              key={`cell-${idx}`}
+                              fill={crimeTypeColors[entry.type] || "#808080"}
+                            />
+                          ))}
+                        </Pie>
+                        <Legend
+                          formatter={(value) => typeLabels[value]}
+                          wrapperStyle={{
+                            fontSize: "12px",
+                            paddingTop: "10px",
+                          }}
+                        />
+                        <RechartsTooltip
+                          formatter={(value, name) => [value, typeLabels[name]]}
+                          contentStyle={{
+                            backgroundColor: cardBg,
+                            border: "none",
+                            borderRadius: "8px",
+                            padding: "8px",
+                          }}
+                        />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </Box>
+                </Flex>
+              </Card>
+            </motion.div>
+          </SimpleGrid>
+        </motion.div>
       )}
-    </div>
+      <FixedPlugin />
+    </Box>
   );
 }
