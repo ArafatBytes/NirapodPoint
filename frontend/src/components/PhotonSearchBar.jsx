@@ -1,4 +1,18 @@
 import React, { useState, useRef } from "react";
+import {
+  InputGroup,
+  Input,
+  InputLeftElement,
+  Box,
+  List,
+  ListItem,
+  Spinner,
+  useColorModeValue,
+  Text,
+  Flex,
+  Icon,
+} from "@chakra-ui/react";
+import { SearchIcon } from "@chakra-ui/icons";
 
 export default function PhotonSearchBar({
   placeholder,
@@ -60,6 +74,7 @@ export default function PhotonSearchBar({
     onSelect && onSelect(s);
   };
 
+  // Hide dropdown on outside click
   React.useEffect(() => {
     const handler = (e) => {
       if (!inputRef.current?.contains(e.target)) setShowDropdown(false);
@@ -68,89 +83,100 @@ export default function PhotonSearchBar({
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
+  // Theming
+  const bg = useColorModeValue("white", "navy.700");
+  const border = useColorModeValue("brand.200", "brand.400");
+  const dropdownBg = useColorModeValue("white", "navy.800");
+  const highlight = useColorModeValue("brand.100", "brand.700");
+  const textColor = useColorModeValue("brand.700", "white");
+  const descColor = useColorModeValue("gray.500", "gray.300");
+  const shadow = useColorModeValue("lg", "dark-lg");
+
   return (
-    <div
+    <Box
       ref={inputRef}
-      style={{
-        position: "relative",
-        width: "100%",
-        maxWidth: 420,
-        margin: "0 auto",
-      }}
+      position="relative"
+      w="100%"
+      maxW={"420px"}
+      mx="auto"
+      zIndex={30}
     >
-      <input
-        type="text"
-        value={query}
-        onChange={handleChange}
-        onFocus={() => setShowDropdown(true)}
-        placeholder={placeholder || "Search for a place..."}
-        className="photon-search-input"
-        style={{
-          width: "100%",
-          padding: "12px 16px",
-          borderRadius: 16,
-          border: "1.5px solid #cbd5e1",
-          background: "rgba(255,255,255,0.55)",
-          backdropFilter: "blur(8px)",
-          fontSize: 17,
-          fontWeight: 500,
-          boxShadow: "0 2px 12px #0001",
-          outline: "none",
-          marginBottom: 4,
-          transition: "border 0.2s",
-        }}
-      />
+      <InputGroup size="lg">
+        <InputLeftElement pointerEvents="none">
+          <Icon as={SearchIcon} color="brand.400" boxSize={6} />
+        </InputLeftElement>
+        <Input
+          value={query}
+          onChange={handleChange}
+          onFocus={() => setShowDropdown(true)}
+          placeholder={placeholder || "Search for a place..."}
+          borderRadius="2xl"
+          borderWidth="2px"
+          borderColor={border}
+          bg={bg}
+          color={textColor}
+          fontWeight={500}
+          fontSize={"lg"}
+          boxShadow={shadow}
+          _focus={{ borderColor: "brand.400", boxShadow: "0 0 0 2px #7551FF" }}
+          pr={loading ? 12 : 4}
+        />
+        {loading && (
+          <Spinner
+            size="md"
+            color="brand.400"
+            position="absolute"
+            right={4}
+            top="50%"
+            transform="translateY(-50%)"
+            zIndex={2}
+          />
+        )}
+      </InputGroup>
       {showDropdown && suggestions.length > 0 && (
-        <div
-          className="photon-search-dropdown"
-          style={{
-            position: "absolute",
-            top: 48,
-            left: 0,
-            right: 0,
-            zIndex: 20,
-            background: "rgba(255,255,255,0.85)",
-            backdropFilter: "blur(12px)",
-            borderRadius: 16,
-            boxShadow: "0 4px 24px #0002",
-            border: "1.5px solid #cbd5e1",
-            padding: 4,
-          }}
+        <Box
+          position="absolute"
+          top={14}
+          left={0}
+          right={0}
+          zIndex={50}
+          bg={dropdownBg}
+          borderRadius="2xl"
+          boxShadow={shadow}
+          borderWidth="2px"
+          borderColor={border}
+          mt={2}
+          py={2}
         >
-          {suggestions.map((s, i) => (
-            <div
-              key={i}
-              onClick={() => handleSelect(s)}
-              style={{
-                padding: "10px 16px",
-                borderRadius: 12,
-                cursor: "pointer",
-                fontSize: 16,
-                fontWeight: 500,
-                color: "#222",
-                background: i === 0 ? "rgba(59,130,246,0.07)" : "transparent",
-                marginBottom: 2,
-                transition: "background 0.15s",
-              }}
-              onMouseDown={(e) => e.preventDefault()}
-            >
-              <span>{s.name}</span>
-              {s.desc && (
-                <span style={{ color: "#64748b", fontSize: 14, marginLeft: 8 }}>
-                  {s.desc}
-                </span>
-              )}
-            </div>
-          ))}
-        </div>
+          <List spacing={1}>
+            {suggestions.map((s, i) => (
+              <ListItem
+                key={i}
+                px={4}
+                py={3}
+                borderRadius="xl"
+                cursor="pointer"
+                bg={i === 0 ? highlight : "transparent"}
+                _hover={{ bg: highlight }}
+                transition="background 0.15s"
+                onClick={() => handleSelect(s)}
+                onMouseDown={(e) => e.preventDefault()}
+                display="flex"
+                alignItems="center"
+              >
+                <Text fontWeight={600} color={textColor} fontSize="md">
+                  {s.name}
+                </Text>
+                {s.desc && (
+                  <Text color={descColor} fontSize="sm" ml={2}>
+                    {s.desc}
+                  </Text>
+                )}
+              </ListItem>
+            ))}
+          </List>
+        </Box>
       )}
-      {loading && (
-        <div
-          style={{ position: "absolute", right: 18, top: 14, color: "#2563eb" }}
-        >
-          <span className="animate-spin">⏳</span>
-        </div>
-      )}
-    </div>
+    </Box>
   );
 }
