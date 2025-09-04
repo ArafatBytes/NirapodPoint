@@ -2,6 +2,31 @@ import React, { useEffect, useState } from "react";
 import { useUser } from "../context/UserContext";
 import { motion } from "framer-motion";
 import toast from "react-hot-toast";
+import {
+  Box,
+  Flex,
+  SimpleGrid,
+  Text,
+  Avatar,
+  Badge,
+  Button,
+  Spinner,
+  Alert,
+  AlertIcon,
+  useDisclosure,
+  Modal,
+  ModalOverlay,
+  ModalContent,
+  ModalBody,
+  ModalCloseButton,
+  ModalHeader,
+  Image,
+  useColorModeValue,
+} from "@chakra-ui/react";
+import Banner from "../views/admin/profile/components/Banner";
+import avatar4 from "../assets/img/avatars/avatar4.png";
+import bannerImg from "../assets/img/auth/banner.png";
+import FixedPlugin from "../components/fixedPlugin/FixedPlugin";
 
 const statusOptions = [
   { label: "All", value: "all" },
@@ -17,13 +42,21 @@ export default function AdminPage() {
   const [status, setStatus] = useState("all");
   const [actionLoading, setActionLoading] = useState("");
   const [modalImg, setModalImg] = useState(null);
+  const { isOpen, onOpen, onClose } = useDisclosure();
   const [userToDelete, setUserToDelete] = useState(null);
   const [approveAllLoading, setApproveAllLoading] = useState(false);
+  const [userCrimeCounts, setUserCrimeCounts] = useState({});
+  const textColor = useColorModeValue("secondaryGray.900", "white");
+  
+  const modalBg = useColorModeValue("whiteAlpha.900", "navy.800");
+  const modalBorderColor = useColorModeValue("gray.200", "whiteAlpha.300");
+  const modalTextColor = useColorModeValue("gray.600", "gray.300");
+  const modalHeadingColor = useColorModeValue("secondaryGray.900", "white");
 
   useEffect(() => {
     if (!user || !user.admin) return;
     fetchUsers();
-    // eslint-disable-next-line
+    
   }, [status, user]);
 
   const fetchUsers = async () => {
@@ -34,7 +67,22 @@ export default function AdminPage() {
         headers: { Authorization: `Bearer ${jwt}` },
       });
       if (!res.ok) throw new Error(await res.text());
-      setUsers(await res.json());
+      const usersData = await res.json();
+      setUsers(usersData);
+      
+      const countsRes = await fetch(`/api/users/crime-counts`, {
+        headers: { Authorization: `Bearer ${jwt}` },
+      });
+      let counts = {};
+      if (countsRes.ok) {
+        counts = await countsRes.json();
+      } else {
+        
+        usersData.forEach((u) => {
+          counts[u.id] = 0;
+        });
+      }
+      setUserCrimeCounts(counts);
     } catch (err) {
       setError(err.message || "Failed to fetch users");
     } finally {
@@ -52,9 +100,9 @@ export default function AdminPage() {
       });
       if (!res.ok) throw new Error(await res.text());
       const data = await res.json();
-
+      
       fetchUsers();
-
+      
       const user = users.find((u) => u.id === id);
       if (approve) {
         if (data.verified) {
@@ -83,42 +131,74 @@ export default function AdminPage() {
 
   if (!user || !user.admin) {
     return (
-      <div className="pt-32 text-center text-2xl text-glassyblue-700 font-bold">
-        Access Denied: Admins Only
-      </div>
+      <Box pt={32} textAlign="center">
+        <Text fontSize="2xl" fontWeight="bold" color="purple.700">
+          Access Denied: Admins Only
+        </Text>
+      </Box>
     );
   }
 
   return (
-    <div className="relative min-h-screen bg-gradient-to-br from-glassyblue-100 via-white to-glassyblue-200 flex flex-col items-center pt-24 pb-12 px-2 overflow-x-hidden">
+    <Box
+      minH="100vh"
+      bgGradient="linear(to-br, glassyblue.100, white, glassyblue.200)"
+      pt={24}
+      pb={12}
+      px={2}
+      mt={12}
+    >
       <motion.div
         initial={{ opacity: 0, y: 40 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.8 }}
-        className="w-full max-w-6xl mx-auto"
+        style={{ width: "100%", maxWidth: 1200, margin: "0 auto" }}
       >
-        <h2 className="text-3xl md:text-4xl font-bold text-glassyblue-700 mb-6 text-center drop-shadow-lg">
+        <Text
+          fontSize={{ base: "2xl", md: "3xl" }}
+          fontWeight="extrabold"
+          color={textColor}
+          mb={8}
+          textAlign="center"
+          dropShadow="lg"
+        >
           Admin Panel
-        </h2>
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
-          <div className="flex gap-2 justify-center">
+        </Text>
+        <Flex
+          direction={{ base: "column", md: "row" }}
+          align={{ md: "center" }}
+          justify={{ md: "space-between" }}
+          gap={4}
+          mb={8}
+        >
+          <Flex gap={2} justify="center">
             {statusOptions.map((opt) => (
-              <button
+              <Button
                 key={opt.value}
                 onClick={() => setStatus(opt.value)}
-                className={`px-4 py-2 rounded-full font-semibold border transition-colors duration-200 backdrop-blur-md ${
+                variant={status === opt.value ? "solid" : "outline"}
+                bgGradient={
                   status === opt.value
-                    ? "bg-glassyblue-500 text-black border-glassyblue-600"
-                    : "bg-white/40 text-glassyblue-700 border-glassyblue-200 hover:bg-glassyblue-100"
-                }`}
+                    ? "linear(to-r, #7551FF, #422AFB)"
+                    : undefined
+                }
+                color={status === opt.value ? "white" : "purple.700"}
+                borderColor="purple.300"
+                rounded="full"
+                size="md"
+                fontWeight="bold"
+                _hover={{
+                  bgGradient: "linear(to-r, #422AFB, #7551FF)",
+                  color: "white",
+                }}
+                transition="all 0.2s"
               >
                 {opt.label}
-              </button>
+              </Button>
             ))}
-          </div>
-          {/* Approve All button, only for unverified filter and if there are users */}
+          </Flex>
           {status === "false" && users.length > 0 && (
-            <button
+            <Button
               onClick={async () => {
                 setApproveAllLoading(true);
                 setError("");
@@ -126,7 +206,6 @@ export default function AdminPage() {
                 let approved = 0,
                   failed = 0;
                 const batchSize = 5;
-
                 const processBatch = async (batch) => {
                   await Promise.all(
                     batch.map(async (u) => {
@@ -161,7 +240,6 @@ export default function AdminPage() {
                     })
                   );
                 };
-
                 for (let i = 0; i < unverifiedUsers.length; i += batchSize) {
                   const batch = unverifiedUsers.slice(i, i + batchSize);
                   await processBatch(batch);
@@ -173,270 +251,429 @@ export default function AdminPage() {
                   { duration: 6000 }
                 );
               }}
-              disabled={approveAllLoading}
-              className="ml-auto px-6 py-2 rounded-full bg-green-600 text-white font-semibold shadow hover:bg-green-700 transition-colors duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
+              isLoading={approveAllLoading}
+              loadingText="Approving All..."
+              bgGradient="linear(to-r, #38A169, #805AD5)"
+              color="white"
+              rounded="full"
+              shadow="lg"
+              size="md"
+              fontWeight="bold"
+              _hover={{ bgGradient: "linear(to-r, #805AD5, #38A169)" }}
+              transition="all 0.2s"
+              ml={{ md: "auto" }}
             >
-              {approveAllLoading ? "Approving All..." : "Approve All"}
-            </button>
+              Approve All
+            </Button>
           )}
-        </div>
+        </Flex>
         {error && (
-          <div className="text-red-500 text-center font-medium mb-4">
+          <Alert status="error" mb={4} rounded="md" justifyContent="center">
+            <AlertIcon />
             {error}
-          </div>
+          </Alert>
         )}
         {loading ? (
-          <div className="text-center text-lg text-glassyblue-600">
-            Loading users...
-          </div>
+          <Flex justify="center" align="center" minH="40vh">
+            <Spinner
+              size="xl"
+              color="purple.500"
+              thickness="4px"
+              speed="0.65s"
+            />
+          </Flex>
         ) : users.length === 0 ? (
-          <div className="text-center text-lg text-glassyblue-600">
+          <Text textAlign="center" fontSize="lg" color="purple.600">
             No users found.
-          </div>
+          </Text>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8">
+          <SimpleGrid columns={{ base: 1, md: 2 }} spacing={8}>
             {users.map((u, i) => (
               <motion.div
                 key={u.id}
                 initial={{ opacity: 0, y: 30 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.05, duration: 0.5 }}
-                className="backdrop-blur-xl bg-white/40 border border-glassyblue-200/40 shadow-2xl rounded-3xl p-6 flex flex-col gap-3 items-center"
-                style={{ boxShadow: "0 8px 32px 0 rgba(31, 38, 135, 0.18)" }}
               >
-                {/* User real-time photo */}
-                {u.photo ? (
-                  <img
-                    src={u.photo}
-                    alt="User Photo"
-                    className="w-20 h-20 object-cover rounded-full border-2 border-glassyblue-300 shadow bg-white/60 cursor-pointer mb-2"
-                    title="User Photo"
-                    onClick={() =>
-                      setModalImg({ src: u.photo, alt: `Photo of ${u.name}` })
-                    }
-                  />
-                ) : (
-                  <div className="w-16 h-16 rounded-full bg-gradient-to-br from-glassyblue-200 to-glassyblue-400 flex items-center justify-center text-2xl font-bold text-white mb-2">
-                    {u.name?.[0] || "U"}
-                  </div>
-                )}
-                <div className="text-lg font-semibold text-glassyblue-700 text-center">
-                  {u.name}
-                </div>
-                <div className="text-glassyblue-600 text-sm break-all">
-                  {u.email}
-                </div>
-                <div className="text-glassyblue-600 text-sm">{u.phone}</div>
-                <div className="text-xs text-glassyblue-500">
-                  Joined: {u.createdAt?.slice(0, 10)}
-                </div>
-                <div className="flex gap-2 mt-2">
-                  {u.nidFront && (
-                    <img
-                      src={`data:image/jpeg;base64,${u.nidFront}`}
-                      alt="NID Front"
-                      className="w-20 h-14 object-cover rounded-lg border-2 border-glassyblue-200 shadow bg-white/60 cursor-pointer"
-                      title="NID Front"
-                      onClick={() =>
-                        setModalImg({
-                          src: `data:image/jpeg;base64,${u.nidFront}`,
-                          alt: `NID Front of ${u.name}`,
-                        })
-                      }
-                    />
-                  )}
-                  {u.nidBack && (
-                    <img
-                      src={`data:image/jpeg;base64,${u.nidBack}`}
-                      alt="NID Back"
-                      className="w-20 h-14 object-cover rounded-lg border-2 border-glassyblue-200 shadow bg-white/60 cursor-pointer"
-                      title="NID Back"
-                      onClick={() =>
-                        setModalImg({
-                          src: `data:image/jpeg;base64,${u.nidBack}`,
-                          alt: `NID Back of ${u.name}`,
-                        })
-                      }
-                    />
-                  )}
-                </div>
-                <div className="flex gap-2 mt-2">
-                  {u.verified ? (
-                    <span className="px-3 py-1 rounded-full bg-green-200 text-green-800 text-xs font-bold">
-                      Verified
-                    </span>
-                  ) : (
-                    <span className="px-3 py-1 rounded-full bg-yellow-200 text-yellow-800 text-xs font-bold">
-                      Unverified
-                    </span>
-                  )}
-                  {u.isAdmin && (
-                    <span className="px-3 py-1 rounded-full bg-blue-200 text-blue-800 text-xs font-bold">
-                      Admin
-                    </span>
-                  )}
-                </div>
-                <div className="flex gap-3 mt-4">
+                <Banner
+                  banner={bannerImg}
+                  avatar={u.photo || avatar4}
+                  name={u.name}
+                  job={u.email}
+                  posts={userCrimeCounts[u.id] ?? 0}
+                  followers={undefined}
+                  following={undefined}
+                  onAvatarClick={
+                    u.photo
+                      ? () => {
+                          setModalImg({
+                            src: u.photo,
+                            alt: `Photo of ${u.name}`,
+                          });
+                          onOpen();
+                        }
+                      : undefined
+                  }
+                >
+                  <Flex direction="column" align="center" w="100%" mt={2}>
+                    <Text color="purple.700" fontSize="md" fontWeight="bold">
+                      {u.phone}
+                    </Text>
+                    <Text
+                      fontSize="sm"
+                      color="purple.700"
+                      fontWeight="bold"
+                      mt={1}
+                    >
+                      Joined: {u.createdAt?.slice(0, 10)}
+                    </Text>
+                    <Flex gap={2} mt={2} justify="center">
+                      <Badge
+                        colorScheme={u.verified ? "purple" : "yellow"}
+                        bgGradient={
+                          u.verified
+                            ? "linear(to-r, #7551FF, #422AFB)"
+                            : undefined
+                        }
+                        color={u.verified ? "white" : "yellow.800"}
+                        px={3}
+                        py={1}
+                        borderRadius="full"
+                        fontWeight="bold"
+                        fontSize="xs"
+                      >
+                        {u.verified ? "Verified" : "Unverified"}
+                      </Badge>
+                      {u.isAdmin && (
+                        <Badge
+                          colorScheme="blue"
+                          px={3}
+                          py={1}
+                          borderRadius="full"
+                          fontWeight="bold"
+                          fontSize="xs"
+                        >
+                          Admin
+                        </Badge>
+                      )}
+                    </Flex>
+                    {(u.nidFront || u.nidBack) && (
+                      <Flex w="100%" mt={4} gap={4} justify="center">
+                        {u.nidFront && (
+                          <Image
+                            src={`data:image/jpeg;base64,${u.nidFront}`}
+                            alt="NID Front"
+                            width="48%"
+                            height="140px"
+                            objectFit="cover"
+                            borderRadius="lg"
+                            borderWidth={2}
+                            borderColor="purple.200"
+                            boxShadow="md"
+                            bg="whiteAlpha.700"
+                            cursor="pointer"
+                            onClick={() => {
+                              setModalImg({
+                                src: `data:image/jpeg;base64,${u.nidFront}`,
+                                alt: `NID Front of ${u.name}`,
+                              });
+                              onOpen();
+                            }}
+                            title="NID Front"
+                          />
+                        )}
+                        {u.nidBack && (
+                          <Image
+                            src={`data:image/jpeg;base64,${u.nidBack}`}
+                            alt="NID Back"
+                            width="48%"
+                            height="140px"
+                            objectFit="cover"
+                            borderRadius="lg"
+                            borderWidth={2}
+                            borderColor="purple.200"
+                            boxShadow="md"
+                            bg="whiteAlpha.700"
+                            cursor="pointer"
+                            onClick={() => {
+                              setModalImg({
+                                src: `data:image/jpeg;base64,${u.nidBack}`,
+                                alt: `NID Back of ${u.name}`,
+                              });
+                              onOpen();
+                            }}
+                            title="NID Back"
+                          />
+                        )}
+                      </Flex>
+                    )}
+                  </Flex>
+                </Banner>
+                <Flex justify="center" gap={2} mt={2}>
                   {!u.verified ? (
-                    <button
-                      onClick={() => handleVerify(u.id, true)}
-                      disabled={actionLoading === u.id + true}
-                      className="px-4 py-2 rounded-full bg-green-500 text-white font-semibold shadow hover:bg-green-600 transition-colors duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
+                    <motion.div
+                      whileHover={{ scale: 1.04 }}
+                      whileTap={{ scale: 0.97 }}
                     >
-                      {actionLoading === u.id + true
-                        ? "Approving..."
-                        : "Approve"}
-                    </button>
+                      <Button
+                        onClick={() => handleVerify(u.id, true)}
+                        isLoading={actionLoading === u.id + true}
+                        loadingText="Approving..."
+                        bgGradient="linear(to-r, #38A169, #805AD5)"
+                        color="white"
+                        rounded="full"
+                        shadow="md"
+                        size="sm"
+                        fontWeight="bold"
+                        _hover={{
+                          bgGradient: "linear(to-r, #805AD5, #38A169)",
+                        }}
+                        transition="all 0.2s"
+                      >
+                        Approve
+                      </Button>
+                    </motion.div>
                   ) : (
-                    <button
-                      onClick={() => handleVerify(u.id, false)}
-                      disabled={actionLoading === u.id + false}
-                      className="px-4 py-2 rounded-full bg-red-500 text-white font-semibold shadow hover:bg-red-600 transition-colors duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
+                    <motion.div
+                      whileHover={{ scale: 1.04 }}
+                      whileTap={{ scale: 0.97 }}
                     >
-                      {actionLoading === u.id + false
-                        ? "Disapproving..."
-                        : "Disapprove"}
-                    </button>
+                      <Button
+                        onClick={() => handleVerify(u.id, false)}
+                        isLoading={actionLoading === u.id + false}
+                        loadingText="Disapproving..."
+                        bgGradient="linear(to-r, #F56565, #805AD5)"
+                        color="white"
+                        rounded="full"
+                        shadow="md"
+                        size="sm"
+                        fontWeight="bold"
+                        _hover={{
+                          bgGradient: "linear(to-r, #805AD5, #F56565)",
+                        }}
+                        transition="all 0.2s"
+                      >
+                        Disapprove
+                      </Button>
+                    </motion.div>
                   )}
-                  <button
-                    onClick={() => setUserToDelete(u)}
-                    disabled={actionLoading === u.id + "delete"}
-                    className="px-4 py-2 rounded-full bg-gray-400 text-white font-semibold shadow hover:bg-gray-600 transition-colors duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
+                  <motion.div
+                    whileHover={{ scale: 1.04 }}
+                    whileTap={{ scale: 0.97 }}
                   >
-                    {actionLoading === u.id + "delete"
-                      ? "Deleting..."
-                      : "Delete"}
-                  </button>
-                </div>
+                    <Button
+                      onClick={() => setUserToDelete(u)}
+                      isLoading={actionLoading === u.id + "delete"}
+                      loadingText="Deleting..."
+                      bgGradient="linear(to-r, #718096, #805AD5)"
+                      color="white"
+                      rounded="full"
+                      shadow="md"
+                      size="sm"
+                      fontWeight="bold"
+                      _hover={{ bgGradient: "linear(to-r, #805AD5, #718096)" }}
+                      transition="all 0.2s"
+                    >
+                      Delete
+                    </Button>
+                  </motion.div>
+                </Flex>
               </motion.div>
             ))}
-          </div>
+          </SimpleGrid>
         )}
       </motion.div>
-      {/* Modal for NID image */}
+      {/* Photo Modal */}
       {modalImg && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
-          onClick={() => setModalImg(null)}
-        >
-          <motion.div
-            initial={{ scale: 0.8, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 0.8, opacity: 0 }}
-            className="relative bg-white/80 backdrop-blur-xl rounded-2xl shadow-2xl p-4 flex flex-col items-center"
-            onClick={(e) => e.stopPropagation()}
-            style={{ maxWidth: "90vw", maxHeight: "90vh" }}
+        <>
+          <Box
+            position="fixed"
+            top={0}
+            left={0}
+            right={0}
+            bottom={0}
+            bg="blackAlpha.600"
+            zIndex={10001}
+            onClick={() => setModalImg(null)}
+          />
+          <Box
+            position="fixed"
+            top="50%"
+            left="50%"
+            transform="translate(-50%, -50%)"
+            zIndex={10002}
           >
-            <img
-              src={modalImg.src}
-              alt={modalImg.alt}
-              className="max-w-[80vw] max-h-[70vh] rounded-xl border-4 border-glassyblue-300 shadow-xl"
-              style={{ objectFit: "contain" }}
-            />
-            <button
-              onClick={() => setModalImg(null)}
-              className="mt-4 px-6 py-2 rounded-full bg-glassyblue-500 text-black font-semibold shadow hover:bg-glassyblue-600 transition-colors duration-200"
+            <motion.div
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.8 }}
+              transition={{ duration: 0.3 }}
             >
-              Close
-            </button>
-          </motion.div>
-        </motion.div>
-      )}
-      {/* Modal for delete confirmation */}
-      {userToDelete && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
-          onClick={() => setUserToDelete(null)}
-        >
-          <motion.div
-            initial={{ scale: 0.8, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 0.8, opacity: 0 }}
-            className="relative bg-white/80 backdrop-blur-xl rounded-2xl shadow-2xl p-6 flex flex-col items-center max-w-xs w-full"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="text-xl font-bold text-red-700 mb-2 flex items-center gap-2">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-6 w-6 text-red-500"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M13 16h-1v-4h-1m1-4h.01M12 20c4.418 0 8-3.582 8-8s-3.582-8-8-8-8 3.582-8 8 3.582 8 8 8z"
+              <Box position="relative">
+                <Button
+                  position="absolute"
+                  top={2}
+                  right={2}
+                  onClick={() => setModalImg(null)}
+                  color="white"
+                  bg="blackAlpha.600"
+                  _hover={{ bg: "blackAlpha.700" }}
+                  borderRadius="full"
+                  zIndex={10003}
+                  size="sm"
+                  minW="40px"
+                  h="40px"
+                >
+                  ✕
+                </Button>
+                <Image
+                  src={modalImg?.src}
+                  alt={modalImg?.alt || "Full size"}
+                  maxH="90vh"
+                  maxW="90vw"
+                  objectFit="contain"
+                  borderRadius="lg"
+                  boxShadow="2xl"
                 />
-              </svg>
-              Confirm Deletion
-            </div>
-            <div className="text-glassyblue-700 text-center mb-4">
-              Are you sure you want to{" "}
-              <span className="font-bold text-red-600">delete</span> user{" "}
-              <span className="font-semibold">'{userToDelete.name}'</span> and{" "}
-              <span className="font-bold text-red-600">
-                all their crime reports
-              </span>
-              ?<br />
-              This action cannot be undone.
-            </div>
-            <div className="flex gap-4 mt-2">
-              <button
-                className="px-5 py-2 rounded-full bg-gray-300 text-black font-semibold shadow hover:bg-gray-400 transition-colors duration-200"
-                onClick={() => setUserToDelete(null)}
-                disabled={actionLoading === userToDelete.id + "delete"}
-              >
-                Cancel
-              </button>
-              <button
-                className="px-5 py-2 rounded-full bg-red-500 text-white font-semibold shadow hover:bg-red-600 transition-colors duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
-                onClick={async () => {
-                  setActionLoading(userToDelete.id + "delete");
-                  setError("");
-                  try {
-                    const res = await fetch(`/api/users/${userToDelete.id}`, {
-                      method: "DELETE",
-                      headers: { Authorization: `Bearer ${jwt}` },
-                    });
-                    if (!res.ok) throw new Error(await res.text());
-                    const data = await res.json();
-                    toast.success(
-                      data.message ||
-                        `Deleted user '${userToDelete.name}' and their crimes.`
-                    );
-                    setUserToDelete(null);
-                    fetchUsers();
-                  } catch (err) {
-                    toast.error(
-                      err.message ||
-                        `Failed to delete user '${userToDelete.name}'.`
-                    );
-                    setError(
-                      err.message ||
-                        `Failed to delete user '${userToDelete.name}'.`
-                    );
-                  } finally {
-                    setActionLoading("");
-                  }
-                }}
-                disabled={actionLoading === userToDelete.id + "delete"}
-              >
-                {actionLoading === userToDelete.id + "delete"
-                  ? "Deleting..."
-                  : "Delete"}
-              </button>
-            </div>
-          </motion.div>
-        </motion.div>
+              </Box>
+            </motion.div>
+          </Box>
+        </>
       )}
-    </div>
+      {userToDelete && (
+        <>
+          <Box
+            position="fixed"
+            top={0}
+            left={0}
+            right={0}
+            bottom={0}
+            bg="blackAlpha.600"
+            zIndex={10001}
+            onClick={() => setUserToDelete(null)}
+          />
+          <Box
+            position="fixed"
+            top="50%"
+            left="50%"
+            transform="translate(-50%, -50%)"
+            zIndex={10002}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.8 }}
+              transition={{ duration: 0.3 }}
+            >
+              <Box
+                bg={modalBg}
+                borderRadius="2xl"
+                boxShadow="2xl"
+                maxW="sm"
+                overflow="hidden"
+                border="1px"
+                borderColor={modalBorderColor}
+              >
+                <Flex
+                  justify="space-between"
+                  align="center"
+                  p={4}
+                  borderBottom="1px"
+                  borderColor={modalBorderColor}
+                >
+                  <Text
+                    fontWeight="bold"
+                    fontSize="lg"
+                    color={modalHeadingColor}
+                  >
+                    Confirm Deletion
+                  </Text>
+                  <Button
+                    onClick={() => setUserToDelete(null)}
+                    variant="ghost"
+                    size="sm"
+                    borderRadius="full"
+                    _hover={{ bg: "gray.100" }}
+                  >
+                    ✕
+                  </Button>
+                </Flex>
+                <Box
+                  display="flex"
+                  flexDirection="column"
+                  alignItems="center"
+                  justifyContent="center"
+                  p={6}
+                >
+                  <Text
+                    fontSize="lg"
+                    fontWeight="bold"
+                    mb={2}
+                    color={modalHeadingColor}
+                  >
+                    Are you sure you want to delete user '{userToDelete?.name}'
+                    and all their crime reports?
+                  </Text>
+                  <Text color={modalTextColor} mb={4} textAlign="center">
+                    This action cannot be undone.
+                  </Text>
+                  <Flex gap={4} mt={2}>
+                    <Button
+                      onClick={() => setUserToDelete(null)}
+                      colorScheme="gray"
+                      variant="outline"
+                      rounded="full"
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      colorScheme="red"
+                      rounded="full"
+                      isLoading={actionLoading === userToDelete?.id + "delete"}
+                      loadingText="Deleting..."
+                      onClick={async () => {
+                        setActionLoading(userToDelete.id + "delete");
+                        setError("");
+                        try {
+                          const res = await fetch(
+                            `/api/users/${userToDelete.id}`,
+                            {
+                              method: "DELETE",
+                              headers: { Authorization: `Bearer ${jwt}` },
+                            }
+                          );
+                          if (!res.ok) throw new Error(await res.text());
+                          const data = await res.json();
+                          toast.success(
+                            data.message ||
+                              `Deleted user '${userToDelete.name}' and their crimes.`
+                          );
+                          setUserToDelete(null);
+                          fetchUsers();
+                        } catch (err) {
+                          toast.error(
+                            err.message ||
+                              `Failed to delete user '${userToDelete.name}'.`
+                          );
+                          setError(
+                            err.message ||
+                              `Failed to delete user '${userToDelete.name}'.`
+                          );
+                        } finally {
+                          setActionLoading("");
+                        }
+                      }}
+                    >
+                      Confirm Delete
+                    </Button>
+                  </Flex>
+                </Box>
+              </Box>
+            </motion.div>
+          </Box>
+        </>
+      )}
+      <FixedPlugin />
+    </Box>
   );
 }
